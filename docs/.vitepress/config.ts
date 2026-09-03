@@ -1,9 +1,12 @@
 import { defineConfig } from 'vitepress'
 
+const appBase = process.env.VITE_BASE_PATH ?? '/'
+const base = `${appBase.replace(/\/$/, '')}/docs/`
+
 export default defineConfig({
   title: 'Docs',
   description: 'AI Character Management Suite',
-  base: '/docs/',
+  base,
   srcDir: '.',
   outDir: '../dist/docs',
   cleanUrls: true,
@@ -84,7 +87,7 @@ nav: [
       provider: 'local',
     },
     footer: {
-      message: '<a href="/docs/privacy">Privacy</a>',
+      message: `<a href="${base}privacy">Privacy</a>`,
       copyright: 'Copyright © 2026 spaceman2408',
     },
   },
