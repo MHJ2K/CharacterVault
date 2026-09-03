@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Book, Upload, User, X } from 'lucide-react';
+import { CharacterSettingsPanel } from '../settings/CharacterSettingsPanel';
 import { useCharacterContext, useLorebookContext } from '../../context';
 import { PromoBanner } from '../PromoBanner';
 import type { ConfirmTarget, VaultTab } from './types';
@@ -26,6 +27,7 @@ export function CharacterSelectionView({
     deleteCharacter,
     duplicateCharacter,
     refreshCharacters,
+    refreshSettings,
   } = useCharacterContext();
   const { lorebookListItems, createLorebook, importLorebookFile } = useLorebookContext();
 
@@ -43,7 +45,9 @@ export function CharacterSelectionView({
     }
   });
 
+  const vaultScrollRef = useRef<HTMLDivElement>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [newItemName, setNewItemName] = useState('');
   const [lorebookSearch, setLorebookSearch] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<ConfirmTarget | null>(null);
@@ -113,7 +117,9 @@ export function CharacterSelectionView({
 
   return (
     <div
+      ref={vaultScrollRef}
       className="h-dvh overflow-y-auto bg-bg text-fg transition-colors duration-500 animate-fade-in-slow relative"
+      style={{ overflowAnchor: 'none' }}
       onDragEnter={io.handleDragEnter}
       onDragLeave={io.handleDragLeave}
       onDragOver={io.handleDragOver}
@@ -157,6 +163,7 @@ export function CharacterSelectionView({
         onImportClick={io.openFilePicker}
         onBackupClick={io.handleBackupClick}
         onCreateClick={() => setIsCreating(true)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
         isImporting={io.isImporting}
         isExportingVault={io.isExportingVault}
         canBackup={io.canBackup}
@@ -166,6 +173,14 @@ export function CharacterSelectionView({
         importAccept={isLorebooksTab ? '.json,application/json' : '.png,.json,image/*,application/json'}
         importTitle={isLorebooksTab ? 'Import lorebook JSON' : 'Import character cards'}
         createLabel={isLorebooksTab ? 'New Lorebook' : 'Create'}
+      />
+
+      <CharacterSettingsPanel
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        reloadSettings={async () => {
+          await refreshSettings();
+        }}
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -286,6 +301,11 @@ export function CharacterSelectionView({
               safeCurrentPage={library.safeCurrentPage}
               totalPages={library.totalPages}
               onPageChange={library.setCurrentPage}
+              onScrollToTop={() => {
+                const scrollContainer = vaultScrollRef.current;
+                if (!scrollContainer) return;
+                scrollContainer.scrollTo({ left: 0, top: 0, behavior: 'smooth' });
+              }}
               onOpen={(id) => void handleOpenCharacter(id)}
               onDuplicate={(id, name) => setCopyConfirm({ id, name })}
               onDelete={(id, name) => setDeleteConfirm({ id, name })}

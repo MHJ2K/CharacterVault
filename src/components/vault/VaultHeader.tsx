@@ -6,6 +6,7 @@ import {
   Moon,
   Plus,
   Search,
+  Settings,
   Sparkles,
   Sun,
   Upload,
@@ -23,6 +24,7 @@ export interface VaultHeaderProps {
   onImportClick: () => void;
   onBackupClick: () => void;
   onCreateClick: () => void;
+  onOpenSettings: () => void;
   isImporting: boolean;
   isExportingVault: boolean;
   canBackup: boolean;
@@ -43,6 +45,7 @@ export function VaultHeader({
   onImportClick,
   onBackupClick,
   onCreateClick,
+  onOpenSettings,
   isImporting,
   isExportingVault,
   canBackup,
@@ -168,6 +171,12 @@ export function VaultHeader({
             </button>
 
             <div className="h-6 w-px bg-border mx-0.5 hidden sm:block" />
+
+            <IconButton
+              icon={Settings}
+              onClick={onOpenSettings}
+              title="Settings"
+            />
 
             <IconButton
               icon={isDark ? Sun : Moon}

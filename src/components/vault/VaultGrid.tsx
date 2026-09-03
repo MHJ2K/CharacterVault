@@ -1,8 +1,10 @@
+import React from 'react';
 import { Users } from 'lucide-react';
 import type { CharacterListItem } from '../../db';
 import type { CardExportFormat } from './types';
 import { CharacterCard } from './CharacterCard';
 import { CharacterCardSkeleton } from './CharacterCardSkeleton';
+import { VaultPagination } from './VaultPagination';
 
 export interface VaultGridProps {
   isLoading: boolean;
@@ -12,7 +14,8 @@ export interface VaultGridProps {
   searchQuery: string;
   safeCurrentPage: number;
   totalPages: number;
-  onPageChange: (page: number | ((prev: number) => number)) => void;
+  onPageChange: (page: number) => void;
+  onScrollToTop: () => void;
   onOpen: (id: string) => void;
   onDuplicate: (id: string, name: string) => void;
   onDelete: (id: string, name: string) => void;
@@ -30,6 +33,7 @@ export function VaultGrid({
   safeCurrentPage,
   totalPages,
   onPageChange,
+  onScrollToTop,
   onOpen,
   onDuplicate,
   onDelete,
@@ -37,6 +41,15 @@ export function VaultGrid({
   exportingCardId,
   onImportClick,
 }: VaultGridProps): React.ReactElement {
+  const handleTopPageChange = (page: number) => {
+    onPageChange(page);
+  };
+
+  const handleBottomPageChange = (page: number) => {
+    onPageChange(page);
+    onScrollToTop();
+  };
+
   if (isLoading) {
     return (
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5 md:gap-6">
@@ -74,10 +87,17 @@ export function VaultGrid({
 
   return (
     <>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5 md:gap-6">
-        {visibleCharacters.map((char) => (
+      <VaultPagination
+        currentPage={safeCurrentPage}
+        totalPages={totalPages}
+        onPageChange={handleTopPageChange}
+        position="top"
+      />
+
+      <div className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 md:gap-6 lg:grid-cols-4">
+        {visibleCharacters.map((char, index) => (
           <CharacterCard
-            key={char.id}
+            key={`${char.id}-${index}`}
             character={char}
             onOpen={onOpen}
             onDuplicate={onDuplicate}
@@ -88,29 +108,12 @@ export function VaultGrid({
         ))}
       </div>
 
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-8 pb-20">
-        <p className="text-sm text-fg-muted">
-          Page {safeCurrentPage} of {totalPages}
-        </p>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => onPageChange((prev) => Math.max(1, prev - 1))}
-            disabled={safeCurrentPage === 1}
-            className="px-4 py-2 bg-surface border border-border rounded-full hover:border-accent/40 hover:bg-accent-soft hover:text-accent transition-all text-sm font-medium text-fg-muted disabled:opacity-50 disabled:hover:border-border disabled:hover:bg-surface disabled:hover:text-fg-muted"
-          >
-            Previous
-          </button>
-          <button
-            type="button"
-            onClick={() => onPageChange((prev) => Math.min(totalPages, prev + 1))}
-            disabled={safeCurrentPage === totalPages}
-            className="px-4 py-2 bg-surface border border-border rounded-full hover:border-accent/40 hover:bg-accent-soft hover:text-accent transition-all text-sm font-medium text-fg-muted disabled:opacity-50 disabled:hover:border-border disabled:hover:bg-surface disabled:hover:text-fg-muted"
-          >
-            Next
-          </button>
-        </div>
-      </div>
+      <VaultPagination
+        currentPage={safeCurrentPage}
+        totalPages={totalPages}
+        onPageChange={handleBottomPageChange}
+        position="bottom"
+      />
     </>
   );
 }
