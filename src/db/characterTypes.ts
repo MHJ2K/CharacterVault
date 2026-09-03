@@ -474,6 +474,26 @@ export interface SpellcheckSettings {
   customWords: string[];
 }
 
+export interface AITagCategory {
+  key: string;
+  label: string;
+  tags: string[];
+}
+
+export type StudioGenerationField = 'name' | 'description' | 'first_mes' | 'mes_example';
+
+export interface StudioGenerationFieldConfig {
+  key: StudioGenerationField;
+  label: string;
+  enabled: boolean;
+  prompt: string;
+}
+
+export interface StudioGenerationSettings {
+  systemPrompt: string;
+  fields: StudioGenerationFieldConfig[];
+}
+
 export interface CharacterVaultSettings {
   id: 'app-settings';
   ui: {
@@ -501,6 +521,10 @@ export interface CharacterVaultSettings {
   sectionOrder?: CharacterSection[];
   /** Undefined = all visible */
   hiddenSections?: CharacterSection[];
+  /** Global AI Creation Studio tag taxonomy. Missing means bundled defaults. */
+  studioTagCategories?: AITagCategory[];
+  /** AI Creation Studio field order, labels, enabled state, and prompt templates. */
+  studioGeneration?: StudioGenerationSettings;
   lastActiveCharacterId?: UUID;
   version: number;
 }
@@ -591,9 +615,14 @@ export interface AIModelInfo {
  */
 export type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
+export type PostHistoryInstructionsRole = 'system' | 'user' | 'assistant';
+
 export interface AIConfig {
   baseUrl: string;
   apiKey: string;
+  mainActivePrompt: string;
+  postHistoryInstructions: string;
+  postHistoryInstructionsRole: PostHistoryInstructionsRole;
   apiKeysByBaseUrl?: Record<string, string>;
   modelId: string;
   modelIdsByBaseUrl?: Record<string, string>;
@@ -657,6 +686,9 @@ export const DEFAULT_SETTINGS = {
   ai: {
     baseUrl: 'https://nano-gpt.com/api/v1',
     apiKey: '',
+    mainActivePrompt: '',
+    postHistoryInstructions: '',
+    postHistoryInstructionsRole: 'system',
     apiKeysByBaseUrl: {},
     modelId: '',
     modelIdsByBaseUrl: {},

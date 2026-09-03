@@ -49,7 +49,7 @@ export function VaultHeader({
   fileInputRef,
   onImportChange,
   searchPlaceholder = 'Search name or tags...',
-  importAccept = '.png,.json,image/png,application/json',
+  importAccept = '.png,.json,image/*,application/json',
   importTitle = 'Import',
   createLabel = 'Create',
 }: VaultHeaderProps): React.ReactElement {

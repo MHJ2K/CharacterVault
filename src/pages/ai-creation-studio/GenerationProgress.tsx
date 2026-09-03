@@ -5,14 +5,14 @@
 
 import React from 'react';
 import { Loader2, Check, AlertCircle, RotateCcw, Sparkles, RefreshCw } from 'lucide-react';
-import type { GenerationField, GenerationState } from './types';
-import { GENERATION_FIELDS } from './types';
+import type { FieldConfig, GenerationField, GenerationState } from './types';
 
 interface GenerationProgressProps {
   state: GenerationState;
   isLoading: boolean;
   onGenerateField: (field: GenerationField) => void;
   onRegenerateField: (field: GenerationField) => void;
+  fields: FieldConfig[];
 }
 
 export const GenerationProgress: React.FC<GenerationProgressProps> = ({
@@ -20,6 +20,7 @@ export const GenerationProgress: React.FC<GenerationProgressProps> = ({
   isLoading,
   onGenerateField,
   onRegenerateField,
+  fields,
 }) => {
   const { status, currentField, completedFields, error, failedField } = state;
 
@@ -31,7 +32,7 @@ export const GenerationProgress: React.FC<GenerationProgressProps> = ({
         Generation Progress
       </h3>
 
-      {GENERATION_FIELDS.map((field) => {
+      {fields.map((field) => {
         const isDone = completedFields.includes(field.key);
         const isActive = currentField === field.key;
         const isFailed = failedField === field.key;

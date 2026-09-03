@@ -127,7 +127,7 @@ export function CharacterSelectionView({
               {isLorebooksTab ? 'Drop lorebooks to import' : 'Drop character cards to import'}
             </p>
             <p className="mt-1 text-sm text-fg-muted">
-              {isLorebooksTab ? 'JSON — multiple files supported' : 'PNG or JSON — multiple files supported'}
+              {isLorebooksTab ? 'JSON — multiple files supported' : 'Images or JSON — multiple files supported'}
             </p>
           </div>
         </div>
@@ -163,9 +163,7 @@ export function CharacterSelectionView({
         fileInputRef={io.fileInputRef}
         onImportChange={io.handleImport}
         searchPlaceholder={isLorebooksTab ? 'Search lorebooks...' : 'Search name or tags...'}
-        importAccept={
-          isLorebooksTab ? '.json,application/json' : '.png,.json,image/png,application/json'
-        }
+        importAccept={isLorebooksTab ? '.json,application/json' : '.png,.json,image/*,application/json'}
         importTitle={isLorebooksTab ? 'Import lorebook JSON' : 'Import character cards'}
         createLabel={isLorebooksTab ? 'New Lorebook' : 'Create'}
       />

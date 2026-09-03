@@ -14,6 +14,7 @@ import {
   Tag,
 } from 'lucide-react';
 import { TagSelector } from './TagSelector';
+import { hasAtLeastOneTag } from './inputState';
 import type { InputMode } from './types';
 import {
   formatTag,
@@ -28,10 +29,13 @@ interface ConceptInputProps {
   /* Write mode state */
   concept: string;
   onConceptChange: (value: string) => void;
+  tagsText: string;
+  onTagsTextChange: (value: string) => void;
   /* Tag mode state */
   tagSelections: Record<string, string[]>;
   onTagSelectionsChange: (s: Record<string, string[]>) => void;
   onFeelingLucky: () => void;
+  taxonomyVersion: number;
   /* Shared */
   inputMode: InputMode;
   onInputModeChange: (mode: InputMode) => void;
@@ -41,8 +45,6 @@ interface ConceptInputProps {
   isGenerating: boolean;
   onOpenSettings: () => void;
 }
-
-const WORD_COUNT_MIN = 3;
 
 interface GenerationStyleSelectorProps {
   selections: Record<string, string[]>;
@@ -126,9 +128,12 @@ const GenerationStyleSelector: React.FC<GenerationStyleSelectorProps> = ({
 export const ConceptInput: React.FC<ConceptInputProps> = ({
   concept,
   onConceptChange,
+  tagsText,
+  onTagsTextChange,
   tagSelections,
   onTagSelectionsChange,
   onFeelingLucky,
+  taxonomyVersion,
   inputMode,
   onInputModeChange,
   onGenerate,
@@ -137,11 +142,9 @@ export const ConceptInput: React.FC<ConceptInputProps> = ({
   isGenerating,
   onOpenSettings,
 }) => {
-  const trimmed = concept.trim();
-  const wordCount = trimmed ? trimmed.split(/\s+/).length : 0;
-  const hasMinimumWords = wordCount >= WORD_COUNT_MIN;
+  const hasTags = hasAtLeastOneTag(tagsText);
   const hasGenerationTags = hasRequiredGenerationTags(tagSelections);
-  const canGenerate = isConfigured && hasMinimumWords && hasGenerationTags && !isGenerating;
+  const canGenerate = isConfigured && hasTags && hasGenerationTags && !isGenerating;
 
   return (
     <div className="space-y-5">
@@ -189,9 +192,25 @@ export const ConceptInput: React.FC<ConceptInputProps> = ({
             </p>
           </div>
 
+          {/* Tags input */}
+          <div>
+            <label htmlFor="studio-tags-input" className="mb-2 block text-sm font-semibold text-fg">Tags <span className="text-warning">(required)</span></label>
+            <input
+              id="studio-tags-input"
+              type="text"
+              value={tagsText}
+              onChange={(e) => onTagsTextChange(e.target.value)}
+              placeholder="e.g. Dwarven, Blacksmith, Cynical"
+              disabled={isGenerating}
+              className="w-full px-4 py-2.5 bg-bg/50 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-accent/50 focus:bg-surface disabled:opacity-50 disabled:cursor-not-allowed transition-all placeholder:text-fg-subtle"
+            />
+          </div>
+
           {/* Input Area */}
           <div className="relative">
+            <label htmlFor="studio-character-info" className="mb-2 block text-sm font-semibold text-fg">Character info <span className="font-normal text-fg-muted">(optional)</span></label>
             <textarea
+              id="studio-character-info"
               value={concept}
               onChange={(e) => onConceptChange(e.target.value)}
               placeholder="A cynical dwarven blacksmith with a secret past, living in a mountain fortress who speaks in riddles..."
@@ -200,14 +219,8 @@ export const ConceptInput: React.FC<ConceptInputProps> = ({
             />
             <div className="absolute bottom-3 right-3 flex items-center gap-2">
               {isConfigured && (
-                <span
-                  className={`text-xs font-medium tabular-nums ${
-                    hasMinimumWords
-                      ? 'text-fg-subtle'
-                      : 'text-warning'
-                  }`}
-                >
-                  {wordCount} {wordCount === 1 ? 'word' : 'words'}
+                <span className="text-xs font-medium text-fg-subtle">
+                  Optional
                 </span>
               )}
             </div>
@@ -267,14 +280,14 @@ export const ConceptInput: React.FC<ConceptInputProps> = ({
             )}
           </div>
 
-          {/* Subtle hint when configured but too short */}
-          {isConfigured && !isGenerating && trimmed && !hasMinimumWords && (
+          {/* Required tag hint */}
+          {isConfigured && !isGenerating && !hasTags && (
             <p className="text-xs text-warning text-center">
-              Add a few more words to help the AI understand your concept.
+              Add at least one tag before creating the character.
             </p>
           )}
 
-          {isConfigured && !isGenerating && hasMinimumWords && !hasGenerationTags && (
+          {isConfigured && !isGenerating && hasTags && !hasGenerationTags && (
             <p className="text-xs text-warning text-center">
               Choose a generation style before creating the character.
             </p>
@@ -282,6 +295,7 @@ export const ConceptInput: React.FC<ConceptInputProps> = ({
         </>
       ) : (
         <TagSelector
+          key={taxonomyVersion}
           selections={tagSelections}
           onSelectionsChange={onTagSelectionsChange}
           onFeelingLucky={onFeelingLucky}

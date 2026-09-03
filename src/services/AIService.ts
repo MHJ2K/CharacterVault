@@ -477,6 +477,44 @@ export class AIService {
     );
   }
 
+  private applyMainActivePrompt(messages: ChatMessage[]): ChatMessage[] {
+    const mainActivePrompt = (this.config.mainActivePrompt ?? '').trim();
+    if (!mainActivePrompt) return messages;
+
+    const firstSystemIndex = messages.findIndex((message) => message.role === 'system');
+    if (firstSystemIndex < 0) {
+      return [{ role: 'system', content: mainActivePrompt }, ...messages];
+    }
+
+    const result = messages.map((message) => ({ ...message }));
+    const existingContent = result[firstSystemIndex].content ?? '';
+    const thinkPrefix = `${GEMMA_THINK_TOKEN}\n`;
+    const preservesThinkPrefix = existingContent.startsWith(thinkPrefix);
+    const taskPrompt = preservesThinkPrefix
+      ? existingContent.slice(thinkPrefix.length)
+      : existingContent;
+    const combinedContent = taskPrompt
+      ? `${mainActivePrompt}\n\n${taskPrompt}`
+      : mainActivePrompt;
+
+    result[firstSystemIndex].content = preservesThinkPrefix
+      ? `${thinkPrefix}${combinedContent}`
+      : combinedContent;
+    return result;
+  }
+
+  private getPostHistoryInstructionsMessage(): ChatMessage | null {
+    const content = (this.config.postHistoryInstructions ?? '').trim();
+    if (!content) return null;
+
+    const configuredRole = this.config.postHistoryInstructionsRole;
+    const role =
+      configuredRole === 'user' || configuredRole === 'assistant'
+        ? configuredRole
+        : 'system';
+    return { role, content };
+  }
+
   /** Truncate context entries to fit within available tokens (partial last chunk OK). */
   private fitContextToLimit(context: string[], availableTokens: number): string[] {
     return fitContextChunks(context, availableTokens);
@@ -490,9 +528,14 @@ export class AIService {
   /**
    * Last-line defense before send: if assembled messages still exceed the input
    * budget, shrink in this order so the active user turn is preserved longest:
-   * 1) assistant history, 2) older user turns, 3) system/context, 4) latest user.
+   * 1) assistant history, 2) older user turns, 3) system/context, 4) latest user,
+   * 5) protected global post-history instructions.
    */
-  private enforceInputBudget(messages: ChatMessage[], maxInput: number): ChatMessage[] {
+  private enforceInputBudget(
+    messages: ChatMessage[],
+    maxInput: number,
+    protectedIndices: ReadonlySet<number> = new Set()
+  ): ChatMessage[] {
     const result = messages.map((m) => ({ ...m }));
 
     const totalTokens = () => this.estimateMessagesTokens(result);
@@ -500,7 +543,7 @@ export class AIService {
 
     let lastUserIndex = -1;
     for (let i = result.length - 1; i >= 0; i--) {
-      if (result[i].role === 'user') {
+      if (result[i].role === 'user' && !protectedIndices.has(i)) {
         lastUserIndex = i;
         break;
       }
@@ -509,18 +552,30 @@ export class AIService {
     const indicesByPriority: number[] = [];
     // Oldest assistant first (drop early history before recent)
     for (let i = 0; i < result.length; i++) {
-      if (result[i].role === 'assistant' || result[i].role === 'tool') indicesByPriority.push(i);
+      if (
+        !protectedIndices.has(i) &&
+        (result[i].role === 'assistant' || result[i].role === 'tool')
+      ) {
+        indicesByPriority.push(i);
+      }
     }
     // Older user turns (not the latest)
     for (let i = 0; i < result.length; i++) {
-      if (result[i].role === 'user' && i !== lastUserIndex) indicesByPriority.push(i);
+      if (
+        !protectedIndices.has(i) &&
+        result[i].role === 'user' &&
+        i !== lastUserIndex
+      ) {
+        indicesByPriority.push(i);
+      }
     }
     // System / context block
     for (let i = 0; i < result.length; i++) {
-      if (result[i].role === 'system') indicesByPriority.push(i);
+      if (!protectedIndices.has(i) && result[i].role === 'system') indicesByPriority.push(i);
     }
     // Last resort: active user message (editor selection / current question)
     if (lastUserIndex >= 0) indicesByPriority.push(lastUserIndex);
+    indicesByPriority.push(...protectedIndices);
 
     for (const i of indicesByPriority) {
       const over = totalTokens() - maxInput;
@@ -783,7 +838,19 @@ Provide only the generated text without any additional commentary.`;
   ): ChatCompletionRequestBody {
     const sampler = { ...this.sampler, ...customSampler };
     const maxInput = this.getMaxInputTokens(sampler);
-    const budgetedMessages = this.enforceInputBudget(messages, maxInput);
+    const messagesWithMainPrompt = this.applyMainActivePrompt(messages);
+    const postHistoryMessage = this.getPostHistoryInstructionsMessage();
+    const messagesWithGlobalPrompts = postHistoryMessage
+      ? [...messagesWithMainPrompt, postHistoryMessage]
+      : messagesWithMainPrompt;
+    const protectedIndices = postHistoryMessage
+      ? new Set([messagesWithGlobalPrompts.length - 1])
+      : undefined;
+    const budgetedMessages = this.enforceInputBudget(
+      messagesWithGlobalPrompts,
+      maxInput,
+      protectedIndices
+    );
 
     const enableReasoning = !!this.config.enableReasoning;
     const effort: ReasoningEffort = this.config.reasoningEffort ?? 'medium';

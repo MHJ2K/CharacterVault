@@ -16,11 +16,11 @@ import {
   Loader2,
 } from 'lucide-react';
 import {
-  TAG_CATEGORIES,
   formatTag,
   getExcludedTagsForUI,
   hasRequiredGenerationTags,
   toggleGenerationTagSelection,
+  getEffectiveTagCategories,
 } from './tags/tagData';
 
 interface TagSelectorProps {
@@ -108,6 +108,7 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
     [selections]
   );
 
+  const categories = getEffectiveTagCategories();
   const searchLower = search.trim().toLowerCase();
 
   // Get excluded tags based on current selections
@@ -182,7 +183,7 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
         </div>
         {hasSelection ? (
           <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
-            {TAG_CATEGORIES.flatMap((cat) =>
+            {categories.flatMap((cat) =>
               (selections[cat.key] ?? []).map((tag) => (
                 <span
                   key={`${cat.key}-${tag}`}
@@ -210,7 +211,7 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
 
       {/* Category sections */}
       <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
-        {TAG_CATEGORIES.map((category) => {
+        {categories.map((category) => {
           const isExpanded = expandedCategories.has(category.key);
           const selectedInCat = selections[category.key] ?? [];
 

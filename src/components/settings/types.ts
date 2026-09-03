@@ -13,10 +13,12 @@ import type {
   PromptModelMap,
   CharacterSection,
   DefaultChatPanel,
+  AITagCategory,
+  StudioGenerationSettings,
 } from '../../db/characterTypes';
 import type { ModelProvider } from '../../services/providers';
 
-export type SettingsTabId = 'ai' | 'sampler' | 'prompts' | 'studio' | 'sections';
+export type SettingsTabId = 'ai' | 'sampler' | 'prompts' | 'studio' | 'studio-generation' | 'sections' | 'tags' | 'backup';
 
 export interface ToastNotification {
   id: string;
@@ -38,6 +40,8 @@ export interface SettingsDraft {
   spellcheckLanguage: string;
   sectionOrder: CharacterSection[];
   hiddenSections: CharacterSection[];
+  studioTagCategories: AITagCategory[];
+  studioGeneration: StudioGenerationSettings;
 }
 
 export interface CharacterSettingsPanelProps {

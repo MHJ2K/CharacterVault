@@ -26,6 +26,7 @@ import {
 } from '../../../services/CharacterSettingsService';
 import { normalizeModelBinding, normalizePromptModelMap } from '../../../services/resolveOperationConfig';
 import { normalizeBaseUrl } from '../config/aiBaseUrlPresets';
+import { DEFAULT_STUDIO_GENERATION_SETTINGS } from '../../../pages/ai-creation-studio/studioGenerationDefaults';
 import type { AddToast, SettingsDraft } from '../types';
 
 export function createDefaultDraft(): SettingsDraft {
@@ -45,6 +46,11 @@ export function createDefaultDraft(): SettingsDraft {
     spellcheckLanguage: DEFAULT_SPELLCHECK_SETTINGS.language,
     sectionOrder: [...DEFAULT_SECTION_ORDER],
     hiddenSections: [],
+    studioTagCategories: [],
+    studioGeneration: {
+      systemPrompt: DEFAULT_STUDIO_GENERATION_SETTINGS.systemPrompt,
+      fields: DEFAULT_STUDIO_GENERATION_SETTINGS.fields.map((field) => ({ ...field })),
+    },
   };
 }
 
@@ -169,7 +175,7 @@ export function useSettingsDraft({ isOpen, reloadSettings, addToast }: UseSettin
     const loadSettings = async () => {
       setIsLoading(true);
       try {
-        const [config, sampler, prompts, promptModels, agentModel, fullSettings, secOrder, secHidden, spell] =
+        const [config, sampler, prompts, promptModels, agentModel, fullSettings, secOrder, secHidden, spell, studioTagCategories, studioGeneration] =
           await Promise.all([
             characterSettingsService.getAISettings(),
             characterSettingsService.getSamplerSettings(),
@@ -180,6 +186,8 @@ export function useSettingsDraft({ isOpen, reloadSettings, addToast }: UseSettin
             characterSettingsService.getSectionOrder(),
             characterSettingsService.getHiddenSections(),
             characterSettingsService.getSpellcheckSettings(),
+            characterSettingsService.getStudioTagCategories(),
+            characterSettingsService.getStudioGenerationSettings(),
           ]);
 
         if (cancelled || !mountedRef.current) return;
@@ -198,6 +206,8 @@ export function useSettingsDraft({ isOpen, reloadSettings, addToast }: UseSettin
           spellcheckLanguage: spell.language,
           sectionOrder: secOrder,
           hiddenSections: secHidden,
+          studioTagCategories,
+          studioGeneration,
         });
       } catch (err) {
         if (cancelled || !mountedRef.current) return;
@@ -284,7 +294,9 @@ export function useSettingsDraft({ isOpen, reloadSettings, addToast }: UseSettin
         },
         sectionOrder: draft.sectionOrder,
         hiddenSections: draft.hiddenSections,
+        studioTagCategories: draft.studioTagCategories,
       });
+      await characterSettingsService.saveStudioGenerationSettings(draft.studioGeneration);
 
       await characterSettingsService.saveSpellcheckSettings({
         enabled: draft.spellcheckEnabled,

@@ -5,8 +5,7 @@
 
 import React, { useRef, useEffect, useState, memo } from 'react';
 import { Type, FileText, MessageCircle, MessagesSquare, Sparkles } from 'lucide-react';
-import type { GenerationField } from './types';
-import { GENERATION_FIELDS } from './types';
+import type { FieldConfig, GenerationField } from './types';
 import { estimateTokens } from '../../services/AIService';
 
 const FieldReasoning: React.FC<{ reasoning: string }> = memo(({ reasoning }) => {
@@ -61,6 +60,7 @@ interface GeneratedCardPreviewProps {
   generatedData: Record<string, string | undefined>;
   generatedReasoning: Partial<Record<GenerationField, string>>;
   onFieldChange: (field: GenerationField, value: string) => void;
+  fields: FieldConfig[];
 }
 
 const FIELD_ICONS: Record<GenerationField, React.ReactNode> = {
@@ -120,6 +120,7 @@ export const GeneratedCardPreview: React.FC<GeneratedCardPreviewProps> = ({
   generatedData,
   generatedReasoning,
   onFieldChange,
+  fields,
 }) => {
   return (
     <div className="space-y-4">
@@ -127,7 +128,7 @@ export const GeneratedCardPreview: React.FC<GeneratedCardPreviewProps> = ({
         Generated Card
       </h3>
 
-      {GENERATION_FIELDS.map((field) => {
+      {fields.map((field) => {
         const value = generatedData[field.key] || '';
         const tokenCount = estimateTokens(value);
         const reasoning = generatedReasoning[field.key];

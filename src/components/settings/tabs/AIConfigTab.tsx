@@ -11,6 +11,7 @@ import {
   Key,
   Loader2,
   LogIn,
+  MessageSquareText,
   Server,
   Shield,
   Sparkles,
@@ -29,7 +30,10 @@ import { ProviderSelect } from '../components/ProviderSelect';
 import { SettingsCard } from '../components/SettingsCard';
 import { PASSWORD_MANAGER_IGNORE_PROPS, SecretInput } from '../components/SecretInput';
 import { SettingsToggle } from '../components/SettingsToggle';
-import type { ReasoningEffort } from '../../../db/characterTypes';
+import type {
+  PostHistoryInstructionsRole,
+  ReasoningEffort,
+} from '../../../db/characterTypes';
 import { getHiddenChainOfThoughtNote } from '../../../services/reasoning/hiddenChainOfThought';
 import type { SettingsTabProps } from '../types';
 
@@ -103,8 +107,8 @@ export const AIConfigTab: React.FC<SettingsTabProps> = ({ draft, setDraft, helpe
                 Clear AI Settings?
               </h4>
               <p className="text-xs text-danger mb-3">
-                This will remove your API key, base URL, and model selection. Your characters and
-                other data will remain untouched.
+                This will remove your API key, base URL, model selection, and global AI prompts.
+                Your characters and other data will remain untouched.
               </p>
               <div className="flex items-center gap-2">
                 <button
@@ -289,6 +293,76 @@ export const AIConfigTab: React.FC<SettingsTabProps> = ({ draft, setDraft, helpe
             </div>
           )}
         </div>
+      </SettingsCard>
+
+      <SettingsCard
+        title="Main Active Prompt"
+        icon={<MessageSquareText className="w-4 h-4 text-fg-muted" />}
+      >
+        <textarea
+          aria-label="Main Active Prompt"
+          value={localAIConfig.mainActivePrompt}
+          onChange={(e) =>
+            setDraft((prev) => ({
+              ...prev,
+              ai: { ...prev.ai, mainActivePrompt: e.target.value },
+            }))
+          }
+          className="w-full min-h-28 h-32 px-3 py-2.5 border border-border-strong rounded-lg bg-surface text-fg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-accent/50 resize-y transition-all duration-200"
+          placeholder="Enter an app-wide instruction for every AI request..."
+        />
+        <p className="mt-2 text-xs text-fg-muted">
+          When set, this is placed at the start of the system instructions for every AI
+          completion, including Orion, inline tools, AI Creation Studio, and agents.
+        </p>
+      </SettingsCard>
+
+      <SettingsCard
+        title="Post-History Instructions"
+        icon={<MessageSquareText className="w-4 h-4 text-fg-muted" />}
+      >
+        <div className="mb-3">
+          <label
+            htmlFor="post-history-instructions-role"
+            className="block text-sm font-medium text-fg-muted mb-2"
+          >
+            Message Role
+          </label>
+          <select
+            id="post-history-instructions-role"
+            value={localAIConfig.postHistoryInstructionsRole}
+            onChange={(e) =>
+              setDraft((prev) => ({
+                ...prev,
+                ai: {
+                  ...prev.ai,
+                  postHistoryInstructionsRole: e.target.value as PostHistoryInstructionsRole,
+                },
+              }))
+            }
+            className="w-full px-3 py-2.5 border border-border-strong rounded-lg bg-surface text-fg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-accent/50 transition-all duration-200"
+          >
+            <option value="system">System</option>
+            <option value="user">User</option>
+            <option value="assistant">Assistant</option>
+          </select>
+        </div>
+        <textarea
+          aria-label="Post-History Instructions"
+          value={localAIConfig.postHistoryInstructions}
+          onChange={(e) =>
+            setDraft((prev) => ({
+              ...prev,
+              ai: { ...prev.ai, postHistoryInstructions: e.target.value },
+            }))
+          }
+          className="w-full min-h-28 h-32 px-3 py-2.5 border border-border-strong rounded-lg bg-surface text-fg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-accent/50 resize-y transition-all duration-200"
+          placeholder="Enter an instruction to send after the full conversation and request..."
+        />
+        <p className="mt-2 text-xs text-fg-muted">
+          When set, this is sent as the selected role after all other messages, including the
+          current request.
+        </p>
       </SettingsCard>
 
       {selectedBaseUrlPreset === 'nano-gpt' && (

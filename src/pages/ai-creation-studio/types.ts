@@ -3,9 +3,9 @@
  * @module @pages/ai-creation-studio/types
  */
 
-import type { CharacterSpec } from '../../db/characterTypes';
+import type { CharacterSpec, StudioGenerationField } from '../../db/characterTypes';
 
-export type GenerationField = 'name' | 'description' | 'first_mes' | 'mes_example';
+export type GenerationField = StudioGenerationField;
 
 export type GenerationStatus = 'idle' | 'generating' | 'complete' | 'error';
 
@@ -24,13 +24,6 @@ export interface FieldConfig {
   label: string;
   icon: string;
 }
-
-export const GENERATION_FIELDS: FieldConfig[] = [
-  { key: 'name', label: 'Name', icon: 'Type' },
-  { key: 'description', label: 'Description', icon: 'FileText' },
-  { key: 'first_mes', label: 'First Message', icon: 'MessageCircle' },
-  { key: 'mes_example', label: 'Examples', icon: 'MessagesSquare' },
-];
 
 /** Input mode for the creation studio concept area */
 export type InputMode = 'write' | 'tags';

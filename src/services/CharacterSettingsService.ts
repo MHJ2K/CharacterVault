@@ -11,6 +11,7 @@ import type {
   PromptModelBinding,
   PromptModelMap,
   SpellcheckSettings,
+  StudioGenerationSettings,
 } from '../db/characterTypes';
 import { DEFAULT_SETTINGS } from '../db/characterTypes';
 import {
@@ -20,7 +21,9 @@ import {
   DEFAULT_SPELLCHECK_SETTINGS,
 } from '../db/characterTypes';
 import { characterDb } from '../db/CharacterDatabase';
-import type { CharacterSection } from '../db/characterTypes';
+import type { AITagCategory, CharacterSection } from '../db/characterTypes';
+import { TAG_CATEGORIES } from '../pages/ai-creation-studio/tags/tagData';
+import { DEFAULT_STUDIO_GENERATION_SETTINGS, cloneStudioGenerationSettings } from '../pages/ai-creation-studio/studioGenerationDefaults';
 import { normalizeModelBinding, normalizePromptModelMap } from './resolveOperationConfig';
 
 /** Drop ephemeral UI-only fields so model catalogs never land in IndexedDB. */
@@ -375,10 +378,96 @@ export class CharacterSettingsService {
       prompts: DEFAULT_SETTINGS.prompts,
       promptModels: {},
       contextSectionIds: [],
+      studioGeneration: cloneStudioGenerationSettings(),
     };
     
     await characterDb.settings.put(defaultSettings);
     return defaultSettings;
+  }
+
+  /** Get the global AI Creation Studio taxonomy. */
+  async getStudioTagCategories(): Promise<AITagCategory[]> {
+    const settings = await this.getSettings();
+    return (settings.studioTagCategories ?? TAG_CATEGORIES).map((category) => ({
+      key: category.key,
+      label: category.label,
+      tags: [...category.tags],
+    }));
+  }
+
+  /** Get the AI Creation Studio generated fields and prompt templates. */
+  async getStudioGenerationSettings(): Promise<StudioGenerationSettings> {
+    const settings = await this.getSettings();
+    const saved = settings.studioGeneration;
+    const savedByKey = new Map((saved?.fields ?? []).map((field) => [field.key, field]));
+    const fields = DEFAULT_STUDIO_GENERATION_SETTINGS.fields.map((defaultField) => {
+      const field = savedByKey.get(defaultField.key);
+      return {
+        ...defaultField,
+        ...field,
+        label: field?.label?.trim() || defaultField.label,
+        prompt: field?.prompt?.trim() || defaultField.prompt,
+        enabled: field?.enabled ?? defaultField.enabled,
+      };
+    });
+    const knownKeys = new Set(fields.map((field) => field.key));
+    const customOrder = (saved?.fields ?? [])
+      .filter((field) => knownKeys.has(field.key))
+      .map((field) => field.key)
+      .filter((key, index, keys) => keys.indexOf(key) === index);
+    const savedKeys = new Set(customOrder);
+    const orderedFields = [
+      ...customOrder.map((key) => fields.find((field) => field.key === key)!).filter(Boolean),
+      ...fields.filter((field) => !savedKeys.has(field.key)),
+    ];
+
+    return {
+      systemPrompt: saved?.systemPrompt?.trim() || DEFAULT_STUDIO_GENERATION_SETTINGS.systemPrompt,
+      fields: orderedFields.map((field) => ({ ...field })),
+    };
+  }
+
+  /** Save the AI Creation Studio generated fields and prompt templates. */
+  async saveStudioGenerationSettings(generation: StudioGenerationSettings): Promise<void> {
+    const settings = await this.getSettings();
+    const defaultsByKey = new Map(DEFAULT_STUDIO_GENERATION_SETTINGS.fields.map((field) => [field.key, field]));
+    const fields = generation.fields
+      .filter((field, index, allFields) => allFields.findIndex((item) => item.key === field.key) === index)
+      .map((field) => {
+        const fallback = defaultsByKey.get(field.key);
+        if (!fallback) return null;
+        return {
+          ...fallback,
+          ...field,
+          label: field.label.trim() || fallback.label,
+          prompt: field.prompt.trim() || fallback.prompt,
+          enabled: field.key === 'name' ? true : field.enabled,
+        };
+      })
+      .filter((field): field is NonNullable<typeof field> => field !== null);
+    const missingFields = DEFAULT_STUDIO_GENERATION_SETTINGS.fields.filter(
+      (field) => !fields.some((savedField) => savedField.key === field.key)
+    );
+    await characterDb.settings.put({
+      ...settings,
+      studioGeneration: cloneStudioGenerationSettings({
+        systemPrompt: generation.systemPrompt.trim() || DEFAULT_STUDIO_GENERATION_SETTINGS.systemPrompt,
+        fields: [...fields, ...missingFields],
+      }),
+    });
+  }
+
+  /** Save the global AI Creation Studio taxonomy. */
+  async saveStudioTagCategories(categories: AITagCategory[]): Promise<void> {
+    const settings = await this.getSettings();
+    await characterDb.settings.put({
+      ...settings,
+      studioTagCategories: categories.map((category) => ({
+        key: category.key,
+        label: category.label.trim(),
+        tags: category.tags.map((tag) => tag.trim()).filter(Boolean),
+      })),
+    });
   }
 
   /**

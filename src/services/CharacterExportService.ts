@@ -84,8 +84,7 @@ export class CharacterExportService {
       const charaData = this.unicodeToBase64(JSON.stringify(cardV2));
 
       // Load the image
-      const imageBlob = await this.dataURLToBlob(character.imageData);
-      const arrayBuffer = await imageBlob.arrayBuffer();
+      const arrayBuffer = await this.convertImageToPNG(character.imageData);
 
       // Embed character data into PNG
       const pngWithMetadata = await this.embedCharaInPNG(arrayBuffer, charaData);
@@ -497,6 +496,38 @@ export class CharacterExportService {
   }
 
   private crcTable: Uint32Array | null = null;
+
+  /**
+   * Convert any browser-supported image data URL to a PNG buffer.
+   * PNG card metadata can only be embedded in a valid PNG container.
+   */
+  private async convertImageToPNG(dataURL: string): Promise<ArrayBuffer> {
+    const blob = await this.dataURLToBlob(dataURL);
+    if (blob.type === 'image/png' || dataURL.startsWith('data:image/png')) {
+      return blob.arrayBuffer();
+    }
+
+    const bitmap = await createImageBitmap(blob);
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const context = canvas.getContext('2d');
+      if (!context) {
+        throw new Error('Unable to create a canvas for image conversion.');
+      }
+      context.drawImage(bitmap, 0, 0);
+      const pngBlob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(resolve, 'image/png');
+      });
+      if (!pngBlob) {
+        throw new Error('Unable to convert image to PNG.');
+      }
+      return pngBlob.arrayBuffer();
+    } finally {
+      bitmap.close();
+    }
+  }
 
   /**
    * Convert data URL to Blob

@@ -20,8 +20,8 @@ function isJsonFile(file: File): boolean {
 function isCharacterImportFile(file: File): boolean {
   return (
     isJsonFile(file) ||
-    file.type === 'image/png' ||
-    file.name.toLowerCase().endsWith('.png')
+    file.type.startsWith('image/') ||
+    /\.(png|jpe?g|gif|webp|bmp|avif|tiff?)$/i.test(file.name)
   );
 }
 
@@ -60,7 +60,7 @@ export function useVaultIO({
     async (files: File[]) => {
       const fileArray = files.filter(isCharacterImportFile);
       if (fileArray.length === 0) {
-        showStatus('No PNG or JSON character files found.');
+        showStatus('No image or JSON character files found.');
         return;
       }
 
