@@ -11,7 +11,7 @@ import type { CharacterSpec } from "../../db/characterTypes";
 import type { GenerationField, GenerationState, FieldConfig } from "./types";
 import type { GenerationStyleTags } from "./tags/tagData";
 import { DEFAULT_STUDIO_GENERATION_SETTINGS, cloneStudioGenerationSettings } from "./studioGenerationDefaults";
-import { renderStudioPrompt, buildGenerationStyleInstructions, buildDescriptionStyleInstructions, buildNarrationFormatInstruction } from "./generationPrompts";
+import { renderStudioPrompt, renderCharacterInfoPrompt, buildGenerationStyleInstructions, buildDescriptionStyleInstructions, buildNarrationFormatInstruction } from "./generationPrompts";
 import type { StudioGenerationSettings } from "../../db/characterTypes";
 
 interface ChatMessage {
@@ -44,12 +44,15 @@ export interface UseAIGenerationResult {
     reloadConfig: () => Promise<void>;
     updateGeneratedField: (field: GenerationField, value: string) => void;
     reset: () => void;
+    generateCharacterInfo: (tags: string, currentInfo: string) => Promise<string>;
+    isGeneratingCharacterInfo: boolean;
 }
 
 export function useAIGeneration(): UseAIGenerationResult {
     const [state, setState] = useState<GenerationState>(INITIAL_STATE);
     const [isConfigured, setIsConfigured] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [isGeneratingCharacterInfo, setIsGeneratingCharacterInfo] = useState(false);
     const [concept, setConcept] = useState("");
     const [generationTags, setGenerationTags] = useState<GenerationStyleTags>({ perspective: null, tense: null });
     const [generationSettings, setGenerationSettings] = useState<StudioGenerationSettings>(() => cloneStudioGenerationSettings());
@@ -524,10 +527,55 @@ export function useAIGeneration(): UseAIGenerationResult {
         }));
     }, []);
 
+    const generateCharacterInfo = useCallback(async (tags: string, currentInfo: string): Promise<string> => {
+        const trimmedTags = tags.trim();
+        if (!trimmedTags) throw new Error("Add at least one tag before generating character info.");
+
+        abortCurrent();
+        const hasConfig = await loadConfig();
+        if (!hasConfig) {
+            throw new Error("AI is not configured. Please configure your AI settings first.");
+        }
+
+        const service = aiServiceRef.current;
+        if (!service) throw new Error("AI service not initialized");
+
+        isAbortedRef.current = false;
+        setIsGeneratingCharacterInfo(true);
+        const settings = generationSettingsRef.current;
+        const trimmedInfo = currentInfo.trim();
+        const template = trimmedInfo
+            ? settings.characterInfoImprovePrompt
+            : settings.characterInfoGeneratePrompt;
+        const prompt = renderCharacterInfoPrompt(template, {
+            tags: trimmedTags,
+            characterInfo: trimmedInfo,
+        });
+        let accumulatedContent = "";
+
+        try {
+            const response = await service.chat([
+                { role: "system", content: settings.systemPrompt },
+                { role: "user", content: prompt },
+            ], undefined, (chunk: { content?: string }) => {
+                if (isAbortedRef.current || !chunk.content) return;
+                accumulatedContent += chunk.content;
+                setConcept(accumulatedContent);
+            });
+            const result = (response.content || accumulatedContent).trim();
+            if (!result) throw new Error("Generation returned empty character info.");
+            setConcept(result);
+            return result;
+        } finally {
+            setIsGeneratingCharacterInfo(false);
+        }
+    }, [abortCurrent, loadConfig]);
+
     const reset = useCallback(() => {
         abortCurrent();
         setState(INITIAL_STATE);
         setIsLoading(false);
+        setIsGeneratingCharacterInfo(false);
         setConcept("");
         generationTagsRef.current = { perspective: null, tense: null };
         setGenerationTags({ perspective: null, tense: null });
@@ -555,6 +603,8 @@ export function useAIGeneration(): UseAIGenerationResult {
         continueGeneration,
         reloadConfig,
         updateGeneratedField,
-        reset
+        reset,
+        generateCharacterInfo,
+        isGeneratingCharacterInfo
     };
 }

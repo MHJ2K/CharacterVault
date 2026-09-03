@@ -32,7 +32,7 @@ export const AICreationStudio: React.FC = () => {
         closeLorebook();
     }, [closeCharacter, closeLorebook]);
 
-    const { state, fields, isConfigured, isLoading, start, abort, retryField, regenerateField, continueGeneration, reloadConfig, updateGeneratedField, reset } = useAIGeneration();
+    const { state, fields, isConfigured, isLoading, isGeneratingCharacterInfo, start, abort, retryField, regenerateField, continueGeneration, reloadConfig, updateGeneratedField, reset, generateCharacterInfo } = useAIGeneration();
 
     const [concept, setConcept] = useState("");
     const [tagsText, setTagsText] = useState("");
@@ -48,6 +48,9 @@ export const AICreationStudio: React.FC = () => {
     const [vortexTags, setVortexTags] = useState<string[]>([]);
     const [showLuckyVortexSetting, setShowLuckyVortexSetting] = useState(true);
     const [fadeInputModal, setFadeInputModal] = useState(false);
+    const [characterInfoError, setCharacterInfoError] = useState<string | null>(null);
+    const [characterInfoUndo, setCharacterInfoUndo] = useState<string[]>([]);
+    const [characterInfoRedo, setCharacterInfoRedo] = useState<string[]>([]);
 
     // Load "Show Lucky Vortex" setting on mount
     useEffect(() => {
@@ -95,6 +98,38 @@ export const AICreationStudio: React.FC = () => {
     const handleAbort = useCallback(() => {
         abort();
     }, [abort]);
+
+    const handleGenerateCharacterInfo = useCallback(() => {
+        if (!hasAtLeastOneTag(tagsText) || isGeneratingCharacterInfo || isLoading) return;
+        setCharacterInfoError(null);
+        void generateCharacterInfo(tagsText, concept)
+            .then((result) => {
+                setCharacterInfoUndo((previous) => [...previous, concept]);
+                setCharacterInfoRedo([]);
+                setConcept(result);
+            })
+            .catch((error: unknown) => {
+                setCharacterInfoError(error instanceof Error ? error.message : "Failed to generate character info.");
+            });
+    }, [concept, generateCharacterInfo, isGeneratingCharacterInfo, isLoading, tagsText]);
+
+    const handleCharacterInfoUndo = useCallback(() => {
+        if (characterInfoUndo.length === 0) return;
+        const previous = characterInfoUndo[characterInfoUndo.length - 1];
+        setCharacterInfoUndo((history) => history.slice(0, -1));
+        setCharacterInfoRedo((history) => [...history, concept]);
+        setConcept(previous);
+        setCharacterInfoError(null);
+    }, [characterInfoUndo, concept]);
+
+    const handleCharacterInfoRedo = useCallback(() => {
+        if (characterInfoRedo.length === 0) return;
+        const next = characterInfoRedo[characterInfoRedo.length - 1];
+        setCharacterInfoRedo((history) => history.slice(0, -1));
+        setCharacterInfoUndo((history) => [...history, concept]);
+        setConcept(next);
+        setCharacterInfoError(null);
+    }, [characterInfoRedo, concept]);
 
     const handleFeelingLucky = useCallback(() => {
         if (!hasRequiredGenerationTags(tagSelections)) return;
@@ -236,6 +271,9 @@ export const AICreationStudio: React.FC = () => {
         setVortexActive(false);
         setVortexTags([]);
         setFadeInputModal(false);
+        setCharacterInfoError(null);
+        setCharacterInfoUndo([]);
+        setCharacterInfoRedo([]);
 
         // Fully reset generation state
         reset();
@@ -323,7 +361,7 @@ export const AICreationStudio: React.FC = () => {
                                 {/* Concept Input — hidden during generation or when results exist */}
                                 {showEmptyState && (
                                     <div className={`bg-surface rounded-2xl border border-border shadow-sm p-8 transition-opacity duration-200 ${fadeInputModal ? "opacity-0" : "opacity-100"}`}>
-                                        <ConceptInput concept={concept} onConceptChange={setConcept} tagsText={tagsText} onTagsTextChange={setTagsText} tagSelections={tagSelections} onTagSelectionsChange={handleTagSelectionsChange} onFeelingLucky={handleFeelingLucky} taxonomyVersion={taxonomyVersion} inputMode={inputMode} onInputModeChange={handleInputModeChange} onGenerate={handleGenerate} onAbort={handleAbort} isConfigured={isConfigured} isGenerating={isLoading} onOpenSettings={handleOpenSettings} />
+                                        <ConceptInput concept={concept} onConceptChange={(value) => { setConcept(value); setCharacterInfoError(null); setCharacterInfoRedo([]); }} tagsText={tagsText} onTagsTextChange={(value) => { setTagsText(value); setCharacterInfoError(null); }} tagSelections={tagSelections} onTagSelectionsChange={handleTagSelectionsChange} onFeelingLucky={handleFeelingLucky} taxonomyVersion={taxonomyVersion} inputMode={inputMode} onInputModeChange={handleInputModeChange} onGenerate={handleGenerate} onAbort={handleAbort} isConfigured={isConfigured} isGenerating={isLoading} isGeneratingCharacterInfo={isGeneratingCharacterInfo} onGenerateCharacterInfo={handleGenerateCharacterInfo} characterInfoError={characterInfoError} characterInfoUndoCount={characterInfoUndo.length} characterInfoRedoCount={characterInfoRedo.length} onCharacterInfoUndo={handleCharacterInfoUndo} onCharacterInfoRedo={handleCharacterInfoRedo} onOpenSettings={handleOpenSettings} />
                                     </div>
                                 )}
 

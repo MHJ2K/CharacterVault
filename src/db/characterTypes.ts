@@ -491,6 +491,8 @@ export interface StudioGenerationFieldConfig {
 
 export interface StudioGenerationSettings {
   systemPrompt: string;
+  characterInfoGeneratePrompt: string;
+  characterInfoImprovePrompt: string;
   fields: StudioGenerationFieldConfig[];
 }
 

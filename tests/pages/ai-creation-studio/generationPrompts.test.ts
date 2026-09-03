@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildDescriptionPrompt,
   buildNamePrompt,
+  renderCharacterInfoPrompt,
   renderStudioPrompt,
 } from '../../../src/pages/ai-creation-studio/generationPrompts';
 import {
@@ -24,6 +25,13 @@ describe('AI Studio generation prompts', () => {
     );
   });
 
+  it('renders character info prompts with tags and existing info', () => {
+    expect(renderCharacterInfoPrompt('Tags: ${tags}; Info: ${characterInfo}', {
+      tags: 'Dwarven, Blacksmith',
+      characterInfo: 'A guarded craftsperson',
+    })).toBe('Tags: Dwarven, Blacksmith; Info: A guarded craftsperson');
+  });
+
   it('keeps the bundled name prompt compatible with the previous output', () => {
     const prompt = buildNamePrompt('A clockwork detective');
 
@@ -38,6 +46,12 @@ describe('AI Studio generation prompts', () => {
     expect(prompt).toContain('third-person omniscient style');
     expect(prompt).toContain('Use past tense throughout.');
     expect(prompt).toContain('Descriptions are character-card reference material');
+  });
+
+  it('provides both character info prompt defaults with the supported placeholders', () => {
+    expect(DEFAULT_STUDIO_GENERATION_SETTINGS.characterInfoGeneratePrompt).toContain('${tags}');
+    expect(DEFAULT_STUDIO_GENERATION_SETTINGS.characterInfoImprovePrompt).toContain('${tags}');
+    expect(DEFAULT_STUDIO_GENERATION_SETTINGS.characterInfoImprovePrompt).toContain('${characterInfo}');
   });
 
   it('deep clones generation settings', () => {

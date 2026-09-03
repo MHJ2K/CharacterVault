@@ -423,6 +423,10 @@ export class CharacterSettingsService {
 
     return {
       systemPrompt: saved?.systemPrompt?.trim() || DEFAULT_STUDIO_GENERATION_SETTINGS.systemPrompt,
+      characterInfoGeneratePrompt:
+        saved?.characterInfoGeneratePrompt?.trim() || DEFAULT_STUDIO_GENERATION_SETTINGS.characterInfoGeneratePrompt,
+      characterInfoImprovePrompt:
+        saved?.characterInfoImprovePrompt?.trim() || DEFAULT_STUDIO_GENERATION_SETTINGS.characterInfoImprovePrompt,
       fields: orderedFields.map((field) => ({ ...field })),
     };
   }
@@ -452,6 +456,10 @@ export class CharacterSettingsService {
       ...settings,
       studioGeneration: cloneStudioGenerationSettings({
         systemPrompt: generation.systemPrompt.trim() || DEFAULT_STUDIO_GENERATION_SETTINGS.systemPrompt,
+        characterInfoGeneratePrompt:
+          generation.characterInfoGeneratePrompt.trim() || DEFAULT_STUDIO_GENERATION_SETTINGS.characterInfoGeneratePrompt,
+        characterInfoImprovePrompt:
+          generation.characterInfoImprovePrompt.trim() || DEFAULT_STUDIO_GENERATION_SETTINGS.characterInfoImprovePrompt,
         fields: [...fields, ...missingFields],
       }),
     });

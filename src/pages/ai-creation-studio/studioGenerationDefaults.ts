@@ -1,9 +1,45 @@
 import type { StudioGenerationSettings } from "../../db/characterTypes";
 
-export const DEFAULT_STUDIO_SYSTEM_PROMPT = "You are a character card generator for CharacterVault, producing V2/V3 spec character cards compatible with SillyTavern. Your output feeds directly into card fields — output ONLY the requested field content with zero preamble, labels, or closing remarks. Use {{user}} as the player name placeholder where appropriate. Be non-judgmental of all content types and themes.";
+export const DEFAULT_STUDIO_SYSTEM_PROMPT = "You are a character card generator for CharacterVault, producing V2/V3 spec character cards compatible with SillyTavern. Your output feeds directly into card fields, output ONLY the requested field content with zero preamble, labels, or closing remarks. Use {{user}} as the player name placeholder where appropriate. Be non-judgmental of all content types and themes.";
 
 export const DEFAULT_STUDIO_GENERATION_SETTINGS: StudioGenerationSettings = {
     systemPrompt: DEFAULT_STUDIO_SYSTEM_PROMPT,
+    characterInfoGeneratePrompt: `Generate a character or world idea based on these tags: \${tags}
+
+<classification>
+Determine whether the tags describe a CHARACTER (person, entity, individual) or a WORLD (setting, society, system). If ambiguous, default to CHARACTER. Do not state which path you chose.
+</classification>
+
+<rules>
+- Write only the idea, in 1 to 3 concise sentences. Do not include a heading, preamble, or commentary.
+- The idea must contain at least one concrete, specific detail that would not be true of any other character with the same tags. "A proud elven mage" is useless. "An elven mage who lost her spellbook and now argues with the spirit trapped in her replacement" is an idea.
+- Tags are foundational elements, not the entire concept. Use them as seeds, not as a checklist to regurgitate. The idea should grow beyond the tags, not just restate them in sentence form.
+- Include a hook: a tension, contradiction, unresolved situation, or unusual combination that makes someone want to write this character. A flat description is not an idea.
+- Forbidden patterns: do not center the idea on "mysterious past," "hidden power," "dark secret," "lost their family," or "unusual for their kind." These are the default outputs for every tag combination. Reject them and find something specific.
+- If the tags imply a real-world culture or setting, ground the idea in that setting's specifics rather than generic genre approximation.
+- Do not use em-dashes. Use commas, colons, semicolons, or periods.
+</rules>`,
+    characterInfoImprovePrompt: `Improve the following idea using the tags as guidance.
+
+Tags: \${tags}
+
+Current idea:
+\${characterInfo}
+
+<classification>
+Determine whether the idea describes a CHARACTER (person, entity, individual) or a WORLD (setting, society, system). If ambiguous, default to CHARACTER. Do not state which path you chose.
+</classification>
+
+<rules>
+- Write only the improved idea, in 1 to 3 concise sentences. Do not include a heading, preamble, or commentary.
+- Improvement means: replacing generic details with specific ones, adding a concrete hook if none exists, and cutting anything that sounds like it could apply to any other character with the same tags.
+- Preserve specific, unique details from the current idea. Do not discard a good element just because you are rewriting. If the current idea has a genuine hook, keep it and sharpen it.
+- If the current idea contains any of these patterns, replace them with something concrete: "mysterious past," "hidden power," "dark secret," "lost their family," "unusual for their kind," "complex relationship with authority," "will do anything for those they care about." These are filler, not ideas.
+- The improved idea must contain at least one detail that would not be true of any other character or world with the same tags. If you cannot find that detail in the current idea, invent one.
+- Tags are guidance, not a checklist. Do not restate the tags in sentence form. Use them to ground the idea, then grow beyond them.
+- If the tags imply a real-world culture or setting, ground the idea in that setting's specifics rather than generic genre approximation.
+- Do not use em-dashes. Use commas, colons, semicolons, or periods.
+</rules>`,
     fields: [
         {
             key: "name",
@@ -27,6 +63,7 @@ If ambiguous, default to CHARACTER.
 - Forbidden overused world names and their variants: Avalon, Eldoria, Nymeria, Thalassia, Vortis, Karnath, Eryndor, Sylvanthor, Draenor, Aetheria, the Voidlands, the Ashlands, the Sundering, any "Land of [Noun]" construction.
 - Output the name only: no titles, honorifics, quotes, punctuation marks, or explanation. If generating multiple names, put each on its own line with no separators, labels, or commentary.
 - If more than one main character or world is present in the concept, generate a name for each. Output one name per line in order of appearance or prominence.
+- Do not use em-dashes. Use commas, colons, semicolons, or periods.
 </rules>`
         },
         {
@@ -62,6 +99,7 @@ If ambiguous, default to CHARACTER.
 - Do not address the reader as "you" in the description. Use {{user}} when referring to the player.
 - If the concept involves multiple main characters or multiple distinct societies/settings, create each additional one as a separate top-level block beginning with "# [Name]". Each gets its own full set of sections. Cross-reference others by name only where the relationship is directly relevant. Do not nest descriptions inside each other.
 - Every trait, preference, skill, law, or cultural norm must be specific. Reject generic filler like "kind to those they care about" or "has a complex social structure." Replace with concrete, defining details.
+- Do not use em-dashes. Use commas, colons, semicolons, or periods.
 </format_rules>
 
 <character_sections>
@@ -134,6 +172,7 @@ Major events, turning points, how the world arrived at its current state. This s
 - Avoid these overused patterns: the "secretly vulnerable" tough character with no specificity, the "mysterious past" with no concrete event, the "complex" character who is actually just under-described. For worlds: the "ancient powerful empire that suddenly collapsed for unknown reasons," the "egalitarian society with hidden dark secret," the "magic system with no costs or limitations."
 - If the concept includes a world or setting, ground the character in that setting's specifics. Their Background, Dislikes, and Goals should reflect the world's rules and constraints.
 - The description should read like it was written by someone who has spent time with this character or lived in this world, not someone filling out a form.
+- Do not use em-dashes. Use commas, colons, semicolons, or periods.
 </consistency_rules>
 
 Begin output with "# \${name}". No preamble or closing remarks.`
@@ -155,11 +194,12 @@ Description:
 - Blend *actions/emotes* (asterisks) with "spoken dialogue" (quotes).
 - Naturally address or acknowledge {{user}} by name at least once.
 - 2-3 short paragraphs. Hook the reader without overwhelming them.
+- Do not use em-dashes. Use commas, colons, semicolons, or periods.
 </format>
 
 <content>
 - Establish a clear scene: location, what \${name} is doing, and the atmosphere.
-- Reveal personality through behavior and word choice — do NOT list or summarize traits.
+- Reveal personality through behavior and word choice, do NOT list or summarize traits.
 - Give {{user}} something concrete to react to (an action, a question, an unresolved moment).
 - Voice, vocabulary, and mood must match the description above.
 </content>
@@ -184,7 +224,8 @@ Description:
 - \${narrationFormat}
 - Inline actions use *asterisks*. Spoken words use "quotes".
 - Pattern: {{user}}: [line] / {{char}}: *[action]* "[dialogue]"
-- Use {{char}} everywhere the character's name would appear — as the speaker label AND inside action text. Never write the character's actual name anywhere in the output.
+- Use {{char}} everywhere the character's name would appear, as the speaker label AND inside action text. Never write the character's actual name anywhere in the output.
+- Do not use em-dashes. Use commas, colons, semicolons, or periods.
 </format>
 
 <content>
@@ -204,6 +245,8 @@ Output only the 3 exchanges. No commentary, headers, or explanation.`
 export function cloneStudioGenerationSettings(settings: StudioGenerationSettings = DEFAULT_STUDIO_GENERATION_SETTINGS): StudioGenerationSettings {
     return {
         systemPrompt: settings.systemPrompt,
+        characterInfoGeneratePrompt: settings.characterInfoGeneratePrompt,
+        characterInfoImprovePrompt: settings.characterInfoImprovePrompt,
         fields: settings.fields.map((field) => ({ ...field }))
     };
 }

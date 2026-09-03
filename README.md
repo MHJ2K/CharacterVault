@@ -8,3 +8,4 @@ List of improvements to version 1.4.5:
 6. Edit AI Studio field prompts. And the ability to choose which fields to generate(Some like myself don't want Example messages)
 7. Clicking "Go back" now actually goes back with selected tags and character info field still saved.
 8. Improved Name and Description generation prompts significantly. Multiple characters names/descriptions handling, world name/description handling.
+9. Added a "Generate Idea" button to the AI Studio character info field. Uses the tags to generate an idea. If there is text inside the field, then it changes to a "Improve" button. Undo/Redo buttons are also added for it, so the user can go back and forth between generations.

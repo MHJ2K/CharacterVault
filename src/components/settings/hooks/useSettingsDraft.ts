@@ -49,6 +49,8 @@ export function createDefaultDraft(): SettingsDraft {
     studioTagCategories: [],
     studioGeneration: {
       systemPrompt: DEFAULT_STUDIO_GENERATION_SETTINGS.systemPrompt,
+      characterInfoGeneratePrompt: DEFAULT_STUDIO_GENERATION_SETTINGS.characterInfoGeneratePrompt,
+      characterInfoImprovePrompt: DEFAULT_STUDIO_GENERATION_SETTINGS.characterInfoImprovePrompt,
       fields: DEFAULT_STUDIO_GENERATION_SETTINGS.fields.map((field) => ({ ...field })),
     },
   };

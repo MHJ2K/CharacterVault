@@ -12,6 +12,8 @@ import {
   X,
   PenLine,
   Tag,
+  Undo2,
+  Redo2,
 } from 'lucide-react';
 import { TagSelector } from './TagSelector';
 import { hasAtLeastOneTag } from './inputState';
@@ -43,6 +45,13 @@ interface ConceptInputProps {
   onAbort: () => void;
   isConfigured: boolean;
   isGenerating: boolean;
+  isGeneratingCharacterInfo: boolean;
+  onGenerateCharacterInfo: () => void;
+  characterInfoError: string | null;
+  characterInfoUndoCount: number;
+  characterInfoRedoCount: number;
+  onCharacterInfoUndo: () => void;
+  onCharacterInfoRedo: () => void;
   onOpenSettings: () => void;
 }
 
@@ -140,11 +149,19 @@ export const ConceptInput: React.FC<ConceptInputProps> = ({
   onAbort,
   isConfigured,
   isGenerating,
+  isGeneratingCharacterInfo,
+  onGenerateCharacterInfo,
+  characterInfoError,
+  characterInfoUndoCount,
+  characterInfoRedoCount,
+  onCharacterInfoUndo,
+  onCharacterInfoRedo,
   onOpenSettings,
 }) => {
   const hasTags = hasAtLeastOneTag(tagsText);
   const hasGenerationTags = hasRequiredGenerationTags(tagSelections);
-  const canGenerate = isConfigured && hasTags && hasGenerationTags && !isGenerating;
+  const canGenerate = isConfigured && hasTags && hasGenerationTags && !isGenerating && !isGeneratingCharacterInfo;
+  const canGenerateCharacterInfo = isConfigured && hasTags && !isGenerating && !isGeneratingCharacterInfo;
 
   return (
     <div className="space-y-5">
@@ -179,7 +196,7 @@ export const ConceptInput: React.FC<ConceptInputProps> = ({
           <GenerationStyleSelector
             selections={tagSelections}
             onSelectionsChange={onTagSelectionsChange}
-            isGenerating={isGenerating}
+            isGenerating={isGenerating || isGeneratingCharacterInfo}
           />
 
           {/* Header */}
@@ -201,7 +218,7 @@ export const ConceptInput: React.FC<ConceptInputProps> = ({
               value={tagsText}
               onChange={(e) => onTagsTextChange(e.target.value)}
               placeholder="e.g. Dwarven, Blacksmith, Cynical"
-              disabled={isGenerating}
+              disabled={isGenerating || isGeneratingCharacterInfo}
               className="w-full px-4 py-2.5 bg-bg/50 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-accent/50 focus:bg-surface disabled:opacity-50 disabled:cursor-not-allowed transition-all placeholder:text-fg-subtle"
             />
           </div>
@@ -214,16 +231,47 @@ export const ConceptInput: React.FC<ConceptInputProps> = ({
               value={concept}
               onChange={(e) => onConceptChange(e.target.value)}
               placeholder="A cynical dwarven blacksmith with a secret past, living in a mountain fortress who speaks in riddles..."
-              disabled={isGenerating}
-              className="w-full h-36 p-4 bg-bg/50 border border-border rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-accent/50 focus:bg-surface disabled:opacity-50 disabled:cursor-not-allowed transition-all placeholder:text-fg-subtle"
+              disabled={isGenerating || isGeneratingCharacterInfo}
+              className="w-full min-h-36 h-36 p-4 pb-14 bg-bg/50 border border-border rounded-xl text-sm resize-y focus:outline-none focus:ring-2 focus:ring-accent/50 focus:bg-surface disabled:opacity-50 disabled:cursor-not-allowed transition-all placeholder:text-fg-subtle"
             />
+            <div className="absolute bottom-3 left-3 flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={onCharacterInfoUndo}
+                disabled={characterInfoUndoCount === 0 || isGenerating || isGeneratingCharacterInfo}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border-strong text-fg-muted transition-colors hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-35"
+                title="Undo Character Info change"
+                aria-label="Undo Character Info change"
+              >
+                <Undo2 className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={onCharacterInfoRedo}
+                disabled={characterInfoRedoCount === 0 || isGenerating || isGeneratingCharacterInfo}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border-strong text-fg-muted transition-colors hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-35"
+                title="Redo Character Info change"
+                aria-label="Redo Character Info change"
+              >
+                <Redo2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
             <div className="absolute bottom-3 right-3 flex items-center gap-2">
               {isConfigured && (
-                <span className="text-xs font-medium text-fg-subtle">
-                  Optional
-                </span>
+                <button
+                  type="button"
+                  onClick={onGenerateCharacterInfo}
+                  disabled={!canGenerateCharacterInfo}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent-soft px-3 py-1.5 text-xs font-semibold text-accent transition-all hover:bg-accent hover:text-accent-fg disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {isGeneratingCharacterInfo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                  {isGeneratingCharacterInfo ? 'Generating...' : concept.trim() ? 'Improve' : 'Generate Idea'}
+                </button>
               )}
             </div>
+            {characterInfoError && (
+              <p className="mt-2 text-xs text-danger" role="alert">{characterInfoError}</p>
+            )}
           </div>
 
           {/* Not Configured State */}

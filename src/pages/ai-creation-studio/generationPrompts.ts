@@ -12,6 +12,15 @@ export interface StudioPromptContext {
     narrationFormat: string;
 }
 
+export interface CharacterInfoPromptContext {
+    tags: string;
+    characterInfo: string;
+}
+
+export function renderCharacterInfoPrompt(template: string, context: CharacterInfoPromptContext): string {
+    return template.replace(/\$\{(tags|characterInfo)\}/g, (_, key: keyof CharacterInfoPromptContext) => context[key]);
+}
+
 export function renderStudioPrompt(template: string, context: StudioPromptContext): string {
     const values: Record<string, string> = {
         concept: context.concept,

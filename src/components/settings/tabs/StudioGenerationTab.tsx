@@ -5,7 +5,8 @@ import { DEFAULT_STUDIO_GENERATION_SETTINGS } from '../../../pages/ai-creation-s
 import { SettingsCard } from '../components/SettingsCard';
 import type { SettingsTabProps } from '../types';
 
-const PLACEHOLDERS = '${concept}, ${name}, ${description}, ${style}, ${narrationFormat}';
+const FIELD_PLACEHOLDERS = '${concept}, ${name}, ${description}, ${style}, ${narrationFormat}';
+const CHARACTER_INFO_PLACEHOLDERS = '${tags}, ${characterInfo}';
 
 export const StudioGenerationTab: React.FC<SettingsTabProps> = ({ draft, setDraft }) => {
   const [expanded, setExpanded] = useState<Set<StudioGenerationField>>(new Set(['name']));
@@ -31,6 +32,8 @@ export const StudioGenerationTab: React.FC<SettingsTabProps> = ({ draft, setDraf
 
   const reset = () => update({
     systemPrompt: DEFAULT_STUDIO_GENERATION_SETTINGS.systemPrompt,
+    characterInfoGeneratePrompt: DEFAULT_STUDIO_GENERATION_SETTINGS.characterInfoGeneratePrompt,
+    characterInfoImprovePrompt: DEFAULT_STUDIO_GENERATION_SETTINGS.characterInfoImprovePrompt,
     fields: DEFAULT_STUDIO_GENERATION_SETTINGS.fields.map((field) => ({ ...field })),
   });
 
@@ -51,6 +54,33 @@ export const StudioGenerationTab: React.FC<SettingsTabProps> = ({ draft, setDraf
           rows={5}
           className="w-full resize-y rounded-lg border border-border-strong bg-surface px-3 py-2 text-sm text-fg"
         />
+      </SettingsCard>
+
+      <SettingsCard title="Character info prompts" icon={<Wand2 className="h-4 w-4" />}>
+        <div className="space-y-4">
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-fg-muted" htmlFor="studio-character-info-generate-prompt">Generate Idea prompt</label>
+            <textarea
+              id="studio-character-info-generate-prompt"
+              value={draft.studioGeneration.characterInfoGeneratePrompt}
+              onChange={(event) => update({ ...draft.studioGeneration, characterInfoGeneratePrompt: event.target.value })}
+              rows={6}
+              className="w-full resize-y rounded-lg border border-border bg-surface px-3 py-2 font-mono text-xs leading-relaxed text-fg"
+            />
+            <p className="mt-2 text-xs text-fg-muted">Available placeholder: <code>${'{tags}'}</code>.</p>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-fg-muted" htmlFor="studio-character-info-improve-prompt">Improve prompt</label>
+            <textarea
+              id="studio-character-info-improve-prompt"
+              value={draft.studioGeneration.characterInfoImprovePrompt}
+              onChange={(event) => update({ ...draft.studioGeneration, characterInfoImprovePrompt: event.target.value })}
+              rows={8}
+              className="w-full resize-y rounded-lg border border-border bg-surface px-3 py-2 font-mono text-xs leading-relaxed text-fg"
+            />
+            <p className="mt-2 text-xs text-fg-muted">Available placeholders: <code>{CHARACTER_INFO_PLACEHOLDERS}</code>.</p>
+          </div>
+        </div>
       </SettingsCard>
 
       {fields.map((field, index) => {
@@ -100,7 +130,7 @@ export const StudioGenerationTab: React.FC<SettingsTabProps> = ({ draft, setDraf
                   rows={Math.min(18, Math.max(6, field.prompt.split('\n').length + 2))}
                   className="w-full resize-y rounded-lg border border-border bg-surface px-3 py-2 font-mono text-xs leading-relaxed text-fg"
                 />
-                <p className="mt-2 text-xs text-fg-muted">Available placeholders: <code>{PLACEHOLDERS}</code>. The style placeholders include the selected perspective and tense instructions.</p>
+                <p className="mt-2 text-xs text-fg-muted">Available placeholders: <code>{FIELD_PLACEHOLDERS}</code>. The style placeholders include the selected perspective and tense instructions.</p>
               </div>
             )}
           </SettingsCard>
