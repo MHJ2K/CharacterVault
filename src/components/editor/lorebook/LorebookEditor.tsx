@@ -3,7 +3,7 @@
  * Two-panel: entry list sidebar + detail editor.
  */
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   Book,
@@ -91,6 +91,7 @@ function LorebookEditorInner({
   const [isRecursionMapOpen, setIsRecursionMapOpen] = useState(false);
   const [isOptionsOpen, setIsOptionsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const deferredSearchQuery = useDeferredValue(searchQuery);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -216,8 +217,8 @@ function LorebookEditorInner({
 
   const filteredEntries = useMemo(() => {
     const sorted = [...entries].sort((a, b) => a.id - b.id);
-    if (!searchQuery.trim()) return sorted;
-    const query = searchQuery.toLowerCase();
+    if (!deferredSearchQuery.trim()) return sorted;
+    const query = deferredSearchQuery.toLowerCase();
     return sorted.filter(
       (entry) =>
         (entry.name?.toLowerCase() || '').includes(query) ||
@@ -225,7 +226,7 @@ function LorebookEditorInner({
         (entry.content?.toLowerCase() || '').includes(query) ||
         entry.keys.some((key) => key.toLowerCase().includes(query)),
     );
-  }, [entries, searchQuery]);
+  }, [entries, deferredSearchQuery]);
 
   const entryIndexById = useMemo(() => {
     const indexById = new Map<number, number>();

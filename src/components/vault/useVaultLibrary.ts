@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import type { CharacterListItem } from '../../db';
 import type { VaultSortMode } from './types';
 import { VAULT_SORT_STORAGE_KEY } from './types';
@@ -12,6 +12,7 @@ export function useVaultLibrary(characterListItems: CharacterListItem[]) {
   });
   const [pageSize, setPageSize] = useState(getVaultPageSize);
   const [currentPage, setCurrentPage] = useState(1);
+  const deferredSearchQuery = useDeferredValue(searchQuery);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -35,15 +36,15 @@ export function useVaultLibrary(characterListItems: CharacterListItem[]) {
 
   const filteredCharacters = useMemo(() => {
     let result = [...characterListItems];
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase().trim();
+    if (deferredSearchQuery) {
+      const q = deferredSearchQuery.toLowerCase().trim();
       result = result.filter((c) => {
         if (c.name.toLowerCase().includes(q)) return true;
         return (c.tags ?? []).some((tag) => tag.toLowerCase().includes(q));
       });
     }
     return result;
-  }, [characterListItems, searchQuery]);
+  }, [characterListItems, deferredSearchQuery]);
 
   const sortedCharacters = useMemo(() => {
     const list = [...filteredCharacters];

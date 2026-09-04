@@ -89,7 +89,7 @@ describe('CharacterSnapshotService.deleteSnapshotById', () => {
       expect(deleteSnapshot).toHaveBeenCalledWith('snap-1');
     } else {
       expect(deleteSnapshotById).toHaveBeenCalledWith('snap-1');
-      expect(cleanOrphanedImages).toHaveBeenCalledWith('char-1');
+      expect(cleanOrphanedImages).toHaveBeenCalledWith();
     }
   });
 

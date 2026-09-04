@@ -154,11 +154,11 @@ export const TagVortexOverlay: React.FC<TagVortexOverlayProps> = ({
 
     const timers: ReturnType<typeof setTimeout>[] = [];
 
-    queueMicrotask(() => {
+    timers.push(setTimeout(() => {
       setPhase('waiting');
       setFadeOut(false);
       setSwirlExiting(false);
-    });
+    }, 0));
 
     if (reducedMotion) {
       timers.push(setTimeout(() => setPhase('reveal'), MODAL_FADE_MS));

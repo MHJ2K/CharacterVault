@@ -111,13 +111,19 @@ export default function CharacterEditorProvider({ children }: CharacterEditorPro
     resolve: Array<(value: Character) => void>;
     reject: Array<(reason?: unknown) => void>;
   }>>(new Map());
+  const characterSaveQueueRef = useRef<Promise<unknown>>(Promise.resolve());
+  const specInFlightRef = useRef<Map<string, Promise<Character | null>>>(new Map());
+  const updateCharacterInFlightRef = useRef<Map<string, Promise<Character | null>>>(new Map());
   const openedCharacterIdRef = useRef<string | null>(null);
   const currentCharacterRef = useRef<Character | null>(currentCharacter);
   const selectedTextRef = useRef(selectedText);
   const isHistoryOpenRef = useRef(isHistoryOpen);
 
   useEffect(() => {
-    currentCharacterRef.current = currentCharacter;
+    // Keep the last character available long enough for the teardown effect to flush it.
+    if (currentCharacter) {
+      currentCharacterRef.current = currentCharacter;
+    }
   }, [currentCharacter]);
 
   useEffect(() => {
@@ -162,81 +168,130 @@ export default function CharacterEditorProvider({ children }: CharacterEditorPro
     }
   }, [refreshSnapshotsForCharacter]);
 
-  const commitQueuedCharacterUpdate = useCallback(async (requestKey: string, characterId: string): Promise<Character | null> => {
+  const hasPendingSavesForCharacter = useCallback((
+    characterId: string,
+    currentRequestKey?: string,
+    currentVersion?: number,
+  ): boolean => {
+    const prefix = `${characterId}:`;
+    if (Array.from(updateCharacterPendingInputRef.current.keys()).some(key => key.startsWith(prefix))) return true;
+    if (Array.from(specPendingValueRef.current.keys()).some(key => key.startsWith(prefix))) return true;
+    if (Array.from(updateCharacterSaveTimerRef.current.keys()).some(key => key.startsWith(prefix))) return true;
+    if (Array.from(specSaveTimerRef.current.keys()).some(key => key.startsWith(prefix))) return true;
+    if (Array.from(updateCharacterInFlightRef.current.keys()).some((key) =>
+      key.startsWith(prefix) &&
+      !(key === currentRequestKey && updateCharacterRequestVersionRef.current.get(key) === currentVersion)
+    )) return true;
+    return Array.from(specInFlightRef.current.keys()).some((key) =>
+      key.startsWith(prefix) &&
+      !(key === currentRequestKey && specFieldRequestVersionRef.current.get(key) === currentVersion)
+    );
+  }, []);
+
+  const enqueueCharacterSave = useCallback(<T,>(operation: () => Promise<T>): Promise<T> => {
+    const queued = characterSaveQueueRef.current.then(operation, operation);
+    characterSaveQueueRef.current = queued.then(() => undefined, () => undefined);
+    return queued;
+  }, []);
+
+  const commitQueuedCharacterUpdate = useCallback((requestKey: string, characterId: string): Promise<Character | null> => {
     const queuedInput = updateCharacterPendingInputRef.current.get(requestKey);
     if (!queuedInput) {
-      return null;
+      return Promise.resolve(null);
     }
-
+    const currentResolvers = updateCharacterPendingResolversRef.current.get(requestKey);
+    updateCharacterPendingInputRef.current.delete(requestKey);
+    updateCharacterPendingResolversRef.current.delete(requestKey);
     const nextVersion = (updateCharacterRequestVersionRef.current.get(requestKey) ?? 0) + 1;
     updateCharacterRequestVersionRef.current.set(requestKey, nextVersion);
 
-    try {
-      const updated = await updateCharacterBase(characterId, queuedInput);
-      const currentResolvers = updateCharacterPendingResolversRef.current.get(requestKey);
-      updateCharacterPendingInputRef.current.delete(requestKey);
-      updateCharacterPendingResolversRef.current.delete(requestKey);
-
-      if (updateCharacterRequestVersionRef.current.get(requestKey) === nextVersion) {
-        setIsDirty(false);
-        setSaveStatus('saved');
+    const commit = enqueueCharacterSave(async () => {
+      try {
+        const updated = await updateCharacterBase(characterId, queuedInput);
+        if (
+          updateCharacterRequestVersionRef.current.get(requestKey) === nextVersion &&
+          !hasPendingSavesForCharacter(characterId, requestKey, nextVersion)
+        ) {
+          setIsDirty(false);
+          setSaveStatus('saved');
+        }
+        currentResolvers?.resolve.forEach(fn => fn(updated));
+        return updated;
+      } catch (error) {
+        if (updateCharacterRequestVersionRef.current.get(requestKey) === nextVersion) {
+          setSaveStatus('error');
+        }
+        currentResolvers?.reject.forEach(fn => fn(error));
+        throw error;
       }
+    });
+    updateCharacterInFlightRef.current.set(requestKey, commit);
+    void commit.then(
+      () => {
+        if (updateCharacterInFlightRef.current.get(requestKey) === commit) {
+          updateCharacterInFlightRef.current.delete(requestKey);
+        }
+      },
+      () => {
+        if (updateCharacterInFlightRef.current.get(requestKey) === commit) {
+          updateCharacterInFlightRef.current.delete(requestKey);
+        }
+      },
+    );
+    return commit;
+  }, [enqueueCharacterSave, hasPendingSavesForCharacter, updateCharacterBase]);
 
-      currentResolvers?.resolve.forEach(fn => fn(updated));
-      return updated;
-    } catch (error) {
-      const currentResolvers = updateCharacterPendingResolversRef.current.get(requestKey);
-      updateCharacterPendingInputRef.current.delete(requestKey);
-      updateCharacterPendingResolversRef.current.delete(requestKey);
-
-      if (updateCharacterRequestVersionRef.current.get(requestKey) === nextVersion) {
-        setSaveStatus('error');
-      }
-
-      currentResolvers?.reject.forEach(fn => fn(error));
-      throw error;
-    }
-  }, [updateCharacterBase]);
-
-  const commitQueuedSpecFieldUpdate = useCallback(async (
+  const commitQueuedSpecFieldUpdate = useCallback((
     requestKey: string,
     characterId: string,
     field: keyof Character['data']['spec'],
   ): Promise<Character | null> => {
     const queuedValue = specPendingValueRef.current.get(requestKey);
     if (queuedValue === undefined) {
-      return null;
+      return Promise.resolve(null);
     }
-
+    const currentResolvers = specPendingResolversRef.current.get(requestKey);
+    specPendingValueRef.current.delete(requestKey);
+    specPendingResolversRef.current.delete(requestKey);
     const nextVersion = (specFieldRequestVersionRef.current.get(requestKey) ?? 0) + 1;
     specFieldRequestVersionRef.current.set(requestKey, nextVersion);
 
-    try {
-      const updated = await updateSpecFieldBase(characterId, field, queuedValue);
-      const currentResolvers = specPendingResolversRef.current.get(requestKey);
-      specPendingValueRef.current.delete(requestKey);
-      specPendingResolversRef.current.delete(requestKey);
-
-      if (specFieldRequestVersionRef.current.get(requestKey) === nextVersion) {
-        setIsDirty(false);
-        setSaveStatus('saved');
+    const commit = enqueueCharacterSave(async () => {
+      try {
+        const updated = await updateSpecFieldBase(characterId, field, queuedValue);
+        if (
+          specFieldRequestVersionRef.current.get(requestKey) === nextVersion &&
+          !hasPendingSavesForCharacter(characterId, requestKey, nextVersion)
+        ) {
+          setIsDirty(false);
+          setSaveStatus('saved');
+        }
+        currentResolvers?.resolve.forEach(fn => fn(updated));
+        return updated;
+      } catch (error) {
+        if (specFieldRequestVersionRef.current.get(requestKey) === nextVersion) {
+          console.error('Failed to save spec field:', error);
+          setSaveStatus('error');
+        }
+        currentResolvers?.reject.forEach(fn => fn(error));
+        throw error;
       }
-
-      currentResolvers?.resolve.forEach(fn => fn(updated));
-      return updated;
-    } catch (error) {
-      const currentResolvers = specPendingResolversRef.current.get(requestKey);
-      specPendingValueRef.current.delete(requestKey);
-      specPendingResolversRef.current.delete(requestKey);
-
-      if (specFieldRequestVersionRef.current.get(requestKey) === nextVersion) {
-        console.error('Failed to save spec field:', error);
-        setSaveStatus('error');
-      }
-      currentResolvers?.reject.forEach(fn => fn(error));
-      throw error;
-    }
-  }, [updateSpecFieldBase]);
+    });
+    specInFlightRef.current.set(requestKey, commit);
+    void commit.then(
+      () => {
+        if (specInFlightRef.current.get(requestKey) === commit) {
+          specInFlightRef.current.delete(requestKey);
+        }
+      },
+      () => {
+        if (specInFlightRef.current.get(requestKey) === commit) {
+          specInFlightRef.current.delete(requestKey);
+        }
+      },
+    );
+    return commit;
+  }, [enqueueCharacterSave, hasPendingSavesForCharacter, updateSpecFieldBase]);
 
   const flushPendingSaves = useCallback(async (): Promise<Character | null> => {
     const character = currentCharacterRef.current;
@@ -245,33 +300,41 @@ export default function CharacterEditorProvider({ children }: CharacterEditorPro
     }
 
     const characterId = character.id;
-    const updates: Array<Promise<Character | null>> = [];
-    const characterRequestKey = `${characterId}:updateCharacter`;
+    let latest = character;
+    while (true) {
+      const updates: Array<Promise<Character | null>> = [];
+      const characterRequestKey = `${characterId}:updateCharacter`;
 
-    if (updateCharacterSaveTimerRef.current.has(characterRequestKey)) {
-      window.clearTimeout(updateCharacterSaveTimerRef.current.get(characterRequestKey));
-      updateCharacterSaveTimerRef.current.delete(characterRequestKey);
-      updates.push(commitQueuedCharacterUpdate(characterRequestKey, characterId));
-    }
-
-    for (const [requestKey, timerId] of specSaveTimerRef.current.entries()) {
-      if (!requestKey.startsWith(`${characterId}:`)) {
-        continue;
+      if (updateCharacterSaveTimerRef.current.has(characterRequestKey)) {
+        window.clearTimeout(updateCharacterSaveTimerRef.current.get(characterRequestKey));
+        updateCharacterSaveTimerRef.current.delete(characterRequestKey);
+        updates.push(commitQueuedCharacterUpdate(characterRequestKey, characterId));
       }
 
-      window.clearTimeout(timerId);
-      specSaveTimerRef.current.delete(requestKey);
-      const field = requestKey.slice(characterId.length + 1) as keyof Character['data']['spec'];
-      updates.push(commitQueuedSpecFieldUpdate(requestKey, characterId, field));
-    }
+      for (const [requestKey, timerId] of Array.from(specSaveTimerRef.current.entries())) {
+        if (!requestKey.startsWith(`${characterId}:`)) continue;
+        window.clearTimeout(timerId);
+        specSaveTimerRef.current.delete(requestKey);
+        const field = requestKey.slice(characterId.length + 1) as keyof Character['data']['spec'];
+        updates.push(commitQueuedSpecFieldUpdate(requestKey, characterId, field));
+      }
 
-    if (updates.length === 0) {
-      return character;
-    }
+      for (const [requestKey, commit] of updateCharacterInFlightRef.current.entries()) {
+        if (requestKey.startsWith(`${characterId}:`)) updates.push(commit);
+      }
+      for (const [requestKey, commit] of specInFlightRef.current.entries()) {
+        if (requestKey.startsWith(`${characterId}:`)) updates.push(commit);
+      }
 
-    const results = await Promise.all(updates);
-    return results.filter((result): result is Character => result !== null).at(-1) ?? character;
+      if (updates.length === 0) break;
+      const results = await Promise.all(updates);
+      const resolved = results.filter((result): result is Character => result !== null);
+      if (resolved.length > 0) latest = resolved[resolved.length - 1];
+    }
+    return latest;
   }, [commitQueuedCharacterUpdate, commitQueuedSpecFieldUpdate]);
+
+
 
   /**
    * Visible sections: sectionOrder minus hiddenSections.
@@ -377,6 +440,14 @@ export default function CharacterEditorProvider({ children }: CharacterEditorPro
       setSnapshotMetadata([]);
     }
   }, [currentCharacter, currentCharacterId, refreshSnapshots]);
+
+  useEffect(() => {
+    return () => {
+      void flushPendingSaves().catch((error) => {
+        console.error('Failed to flush character saves during character teardown:', error);
+      });
+    };
+  }, [currentCharacterId, flushPendingSaves]);
 
   useEffect(() => {
     if (!isHistoryOpen) {

@@ -4,7 +4,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import { CharacterProvider, useCharacterContext, LorebookProvider, useLorebookContext } from './context';
 import { CharacterWorkspace, LorebookWorkspace } from './components/workspace';
 import { WelcomeTutorial } from './components/WelcomeTutorial';
@@ -15,6 +15,7 @@ import { AICreationStudio } from './pages/ai-creation-studio/AICreationStudio';
 function AppContent(): React.ReactNode {
   const { isCharacterOpen, openCharacter, closeCharacter } = useCharacterContext();
   const { isLorebookOpen, openLorebook, closeLorebook } = useLorebookContext();
+  const location = useLocation();
   const [isReady, setIsReady] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [isInitialTutorial, setIsInitialTutorial] = useState(false);
@@ -49,7 +50,7 @@ function AppContent(): React.ReactNode {
       const newHash = hash.slice(0, queryIndex);
       window.history.replaceState({}, document.title, window.location.pathname + newHash);
     }
-  }, [openCharacter, openLorebook, closeCharacter, closeLorebook]);
+  }, [location.key, openCharacter, openLorebook, closeCharacter, closeLorebook]);
 
   const handleTutorialComplete = useCallback(() => {
     setShowTutorial(false);

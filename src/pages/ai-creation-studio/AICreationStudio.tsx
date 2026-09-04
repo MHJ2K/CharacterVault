@@ -65,12 +65,9 @@ export const AICreationStudio: React.FC = () => {
         setShowLuckyVortexSetting(settings.ui?.showLuckyVortex ?? true);
     }, [reloadConfig]);
 
-    const handleTagSelectionsChange = useCallback(
-        (nextSelections: Record<string, string[]>) => {
-            setTagSelections(nextSelections);
-        },
-        []
-    );
+    const handleTagSelectionsChange = useCallback((nextSelections: Record<string, string[]>) => {
+        setTagSelections(nextSelections);
+    }, []);
 
     const handleInputModeChange = useCallback(
         (mode: InputMode) => {
@@ -361,7 +358,37 @@ export const AICreationStudio: React.FC = () => {
                                 {/* Concept Input — hidden during generation or when results exist */}
                                 {showEmptyState && (
                                     <div className={`bg-surface rounded-2xl border border-border shadow-sm p-8 transition-opacity duration-200 ${fadeInputModal ? "opacity-0" : "opacity-100"}`}>
-                                        <ConceptInput concept={concept} onConceptChange={(value) => { setConcept(value); setCharacterInfoError(null); setCharacterInfoRedo([]); }} tagsText={tagsText} onTagsTextChange={(value) => { setTagsText(value); setCharacterInfoError(null); }} tagSelections={tagSelections} onTagSelectionsChange={handleTagSelectionsChange} onFeelingLucky={handleFeelingLucky} taxonomyVersion={taxonomyVersion} inputMode={inputMode} onInputModeChange={handleInputModeChange} onGenerate={handleGenerate} onAbort={handleAbort} isConfigured={isConfigured} isGenerating={isLoading} isGeneratingCharacterInfo={isGeneratingCharacterInfo} onGenerateCharacterInfo={handleGenerateCharacterInfo} characterInfoError={characterInfoError} characterInfoUndoCount={characterInfoUndo.length} characterInfoRedoCount={characterInfoRedo.length} onCharacterInfoUndo={handleCharacterInfoUndo} onCharacterInfoRedo={handleCharacterInfoRedo} onOpenSettings={handleOpenSettings} />
+                                        <ConceptInput
+                                            concept={concept}
+                                            onConceptChange={(value) => {
+                                                setConcept(value);
+                                                setCharacterInfoError(null);
+                                                setCharacterInfoRedo([]);
+                                            }}
+                                            tagsText={tagsText}
+                                            onTagsTextChange={(value) => {
+                                                setTagsText(value);
+                                                setCharacterInfoError(null);
+                                            }}
+                                            tagSelections={tagSelections}
+                                            onTagSelectionsChange={handleTagSelectionsChange}
+                                            onFeelingLucky={handleFeelingLucky}
+                                            taxonomyVersion={taxonomyVersion}
+                                            inputMode={inputMode}
+                                            onInputModeChange={handleInputModeChange}
+                                            onGenerate={handleGenerate}
+                                            onAbort={handleAbort}
+                                            isConfigured={isConfigured}
+                                            isGenerating={isLoading}
+                                            isGeneratingCharacterInfo={isGeneratingCharacterInfo}
+                                            onGenerateCharacterInfo={handleGenerateCharacterInfo}
+                                            characterInfoError={characterInfoError}
+                                            characterInfoUndoCount={characterInfoUndo.length}
+                                            characterInfoRedoCount={characterInfoRedo.length}
+                                            onCharacterInfoUndo={handleCharacterInfoUndo}
+                                            onCharacterInfoRedo={handleCharacterInfoRedo}
+                                            onOpenSettings={handleOpenSettings}
+                                        />
                                     </div>
                                 )}
 

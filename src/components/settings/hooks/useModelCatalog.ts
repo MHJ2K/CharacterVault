@@ -64,6 +64,7 @@ export function useModelCatalog({
   const isOpenRef = useRef(isOpen);
   isOpenRef.current = isOpen;
   const catalogAbortRef = useRef<AbortController | null>(null);
+  const providerRequestIdRef = useRef(0);
   /** Skip setState after unmount when in-flight model/provider fetches complete */
   const mountedRef = useRef(true);
   useEffect(() => {
@@ -268,6 +269,7 @@ export function useModelCatalog({
 
   const fetchModelProviders = useCallback(
     async (modelId: string, ai: AIConfig, sampler: SamplerSettings) => {
+      const requestId = ++providerRequestIdRef.current;
       if (!modelId) return;
 
       if (mountedRef.current) setIsFetchingProviders(true);
@@ -276,7 +278,12 @@ export function useModelCatalog({
         const aiService = new AIService(ai, sampler);
         const providerInfo = await aiService.fetchModelProviders(modelId, signal);
 
-        if (!mountedRef.current || !isOpenRef.current || signal?.aborted) return;
+        if (
+          !mountedRef.current ||
+          !isOpenRef.current ||
+          signal?.aborted ||
+          requestId !== providerRequestIdRef.current
+        ) return;
 
         setSupportsProviderSelection(providerInfo.supportsProviderSelection);
 
@@ -305,7 +312,13 @@ export function useModelCatalog({
         setModelProviders([]);
         setSupportsProviderSelection(false);
       } finally {
-        if (mountedRef.current && isOpenRef.current) setIsFetchingProviders(false);
+        if (
+          mountedRef.current &&
+          isOpenRef.current &&
+          requestId === providerRequestIdRef.current
+        ) {
+          setIsFetchingProviders(false);
+        }
       }
     },
     [setDraft]
@@ -316,6 +329,7 @@ export function useModelCatalog({
     if (!isOpen || isLoading) return;
 
     if (!draft.ai.modelId) {
+      providerRequestIdRef.current += 1;
       setModelProviders([]);
       setSupportsProviderSelection(false);
       return;
@@ -361,7 +375,11 @@ export function useModelCatalog({
         const apiKey = draftRef.current.ai.apiKeysByBaseUrl?.[normalizedUrl];
         if (apiKey) {
           void fetchModelsForUrl(baseUrl, apiKey, { subscriptionOnly }).then((models) => {
-            if (!mountedRef.current || !isOpenRef.current) return;
+            if (
+              !mountedRef.current ||
+              !isOpenRef.current ||
+              normalizeBaseUrl(draftRef.current.ai.baseUrl) !== normalizedUrl
+            ) return;
             setDraft((prev) => ({
               ...prev,
               ai: { ...prev.ai, availableModels: models },
@@ -401,7 +419,11 @@ export function useModelCatalog({
         const apiKey = draftRef.current.ai.apiKeysByBaseUrl?.[normalizedUrl];
         if (apiKey) {
           void fetchModelsForUrl(baseUrl, apiKey, { subscriptionOnly }).then((models) => {
-            if (!mountedRef.current || !isOpenRef.current) return;
+            if (
+              !mountedRef.current ||
+              !isOpenRef.current ||
+              normalizeBaseUrl(draftRef.current.ai.baseUrl) !== normalizedUrl
+            ) return;
             setDraft((prev) => ({
               ...prev,
               ai: { ...prev.ai, availableModels: models },

@@ -63,6 +63,7 @@ export function useCharacter(): [CharacterResult, CharacterOperations] {
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
   const specUpdateSequenceRef = useRef<Map<string, number>>(new Map());
+  const openRequestRef = useRef(0);
   const currentCharacter = useMemo(
     () => characters.find(character => character.id === currentCharacterId) ?? null,
     [characters, currentCharacterId],
@@ -70,6 +71,7 @@ export function useCharacter(): [CharacterResult, CharacterOperations] {
 
   /** Clear open card from memory (used by lorebook open and local close). */
   const dropCharacterPayload = useCallback(() => {
+    openRequestRef.current += 1;
     setCurrentCharacterId(null);
     setCharacters([]);
     // Sequence entries guard stale writes for the open card only; drop them
@@ -148,12 +150,15 @@ export function useCharacter(): [CharacterResult, CharacterOperations] {
     try {
       // Exclusive workspace: drop full lorebook before loading a full card
       dropOpenLorebookPayload();
+      dropCharacterPayload();
+      const requestId = ++openRequestRef.current;
       const character = await characterDb.getCharacter(characterId);
-      if (character) {
+      if (character && requestId === openRequestRef.current) {
         // Replace - do not accumulate every previously opened card in heap
         setCharacters([character]);
 
         const lastOpenedAt = await characterDb.updateLastOpened(characterId);
+        if (requestId !== openRequestRef.current) return;
         // Patch one list row - avoid reloading every thumbnail from IndexedDB
         setCharacterListItems((prev) =>
           prev.map((item) =>
@@ -165,19 +170,21 @@ export function useCharacter(): [CharacterResult, CharacterOperations] {
           await characterSnapshotService.createSnapshot(character, 'open').catch(error => {
             console.error('Failed to create baseline snapshot:', error);
           });
+          if (requestId !== openRequestRef.current) return;
         }
         setCurrentCharacterId(characterId);
 
         // Update last active character in settings
         if (settings) {
           await characterDb.updateSettings({ lastActiveCharacterId: characterId });
+          if (requestId !== openRequestRef.current) return;
           setSettings({ ...settings, lastActiveCharacterId: characterId });
         }
       }
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Failed to open character'));
     }
-  }, [settings]);
+  }, [dropCharacterPayload, settings]);
 
   /**
    * Close the current character

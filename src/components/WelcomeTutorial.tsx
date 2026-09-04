@@ -4,7 +4,7 @@
  * @module @components/WelcomeTutorial
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Users,
   Upload,
@@ -151,6 +151,8 @@ export function WelcomeTutorial({ onComplete, skipEntranceAnimation = false }: W
   const [direction, setDirection] = useState<'next' | 'prev'>('next');
   const [isAnimating, setIsAnimating] = useState(false);
   const [isVisible, setIsVisible] = useState(skipEntranceAnimation);
+  const transitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const completeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Entrance animation (skipped on initial page load to prevent flash)
   useEffect(() => {
@@ -168,7 +170,9 @@ export function WelcomeTutorial({ onComplete, skipEntranceAnimation = false }: W
     setIsAnimating(true);
     setDirection(dir);
 
-    setTimeout(() => {
+    if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
+    transitionTimerRef.current = setTimeout(() => {
+      transitionTimerRef.current = null;
       setCurrentStep(newStep);
       setIsAnimating(false);
     }, 250);
@@ -185,12 +189,23 @@ export function WelcomeTutorial({ onComplete, skipEntranceAnimation = false }: W
   const handleComplete = useCallback(() => {
     localStorage.setItem(STORAGE_KEY, 'true');
     setIsVisible(false);
-    setTimeout(onComplete, 400);
+    if (completeTimerRef.current) clearTimeout(completeTimerRef.current);
+    completeTimerRef.current = setTimeout(() => {
+      completeTimerRef.current = null;
+      onComplete();
+    }, 400);
   }, [onComplete]);
 
   const handleSkip = useCallback(() => {
     handleComplete();
   }, [handleComplete]);
+
+  useEffect(() => {
+    return () => {
+      if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
+      if (completeTimerRef.current) clearTimeout(completeTimerRef.current);
+    };
+  }, []);
 
   // Keyboard navigation
   useEffect(() => {

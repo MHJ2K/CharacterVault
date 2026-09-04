@@ -3,7 +3,7 @@
  * @module components/PromoBanner
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, ExternalLink, Zap } from 'lucide-react';
 
 const GITHUB_URL = 'https://github.com/spaceman2408/SillyTavern-CharacterVaultExport';
@@ -49,6 +49,7 @@ function AnimatedBackground(): React.ReactElement {
 export function PromoBanner({ onDismiss }: PromoBannerProps): React.ReactElement {
   const [hasEntered, setHasEntered] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
+  const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setHasEntered(true), 100);
@@ -57,10 +58,18 @@ export function PromoBanner({ onDismiss }: PromoBannerProps): React.ReactElement
 
   const handleDismiss = () => {
     setIsExiting(true);
-    setTimeout(() => {
+    if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
+    dismissTimerRef.current = setTimeout(() => {
+      dismissTimerRef.current = null;
       onDismiss?.();
     }, 300);
   };
+
+  useEffect(() => {
+    return () => {
+      if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
+    };
+  }, []);
 
   const handleLinkClick = () => {
     window.open(GITHUB_URL, '_blank', 'noopener,noreferrer');

@@ -4,6 +4,7 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { characterImportService } from '../services/CharacterImportService';
 import type { Character, CharacterCardV2, ClipboardValidationResult } from '../db/characterTypes';
 
@@ -128,6 +129,7 @@ function validateCharacterData(data: unknown): ClipboardValidationResult {
  * Hook for importing characters from clipboard
  */
 export function useClipboardImport(): UseClipboardImportReturn {
+  const navigate = useNavigate();
   const [importState, setImportState] = useState<ImportState>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [previewData, setPreviewData] = useState<CharacterCardV2 | null>(null);
@@ -259,21 +261,17 @@ export function useClipboardImport(): UseClipboardImportReturn {
    * Navigate to the library (home)
    */
   const goToLibrary = useCallback(() => {
-    // Force full page reload to ensure fresh character data
-    // Go to base URL to force reload, HashRouter will redirect to #/
-    window.location.href = import.meta.env.BASE_URL;
-  }, []);
+    navigate('/');
+  }, [navigate]);
 
   /**
    * Open the imported character in the editor
    */
   const openImportedCharacter = useCallback(() => {
     if (importedCharacter) {
-      // Navigate to home with query param for opening the character
-      // Use BASE_URL for GitHub Pages compatibility
-      window.location.href = `${import.meta.env.BASE_URL}#/?char=${importedCharacter.id}`;
+      navigate(`/?char=${importedCharacter.id}`);
     }
-  }, [importedCharacter]);
+  }, [importedCharacter, navigate]);
 
   // Auto-read on mount (once)
   useEffect(() => {

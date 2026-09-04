@@ -280,6 +280,12 @@ function SectionTabs({ activeSection, onSectionChange, sections }: SectionTabsPr
 function ImageEditor(): React.ReactElement {
   const { currentCharacter, updateCharacter } = useCharacterEditorContext();
   const [isDragging, setIsDragging] = React.useState(false);
+  const currentCharacterRef = React.useRef(currentCharacter);
+  const uploadRequestRef = React.useRef(0);
+
+  React.useEffect(() => {
+    currentCharacterRef.current = currentCharacter;
+  }, [currentCharacter]);
 
   const handleFileSelect = async (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -287,13 +293,21 @@ function ImageEditor(): React.ReactElement {
       return;
     }
 
+    const requestId = ++uploadRequestRef.current;
+    const characterId = currentCharacter?.id;
     const reader = new FileReader();
     reader.onload = async (e) => {
       const result = e.target?.result as string;
-      if (currentCharacter && result) {
-        const thumbnailData = await generateThumbnail(result);
-        void updateCharacter({ imageData: result, thumbnailData });
+      if (!characterId || !result) return;
+      const thumbnailData = await generateThumbnail(result);
+      const latestCharacter = currentCharacterRef.current;
+      if (
+        requestId !== uploadRequestRef.current ||
+        latestCharacter?.id !== characterId
+      ) {
+        return;
       }
+      void updateCharacter({ imageData: result, thumbnailData });
     };
     reader.readAsDataURL(file);
   };

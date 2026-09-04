@@ -62,6 +62,29 @@ function makeLorebook(overrides: Partial<VaultLorebook> = {}): VaultLorebook {
   };
 }
 
+describe('CharacterExportService', () => {
+  const service = new CharacterExportService();
+
+  it('preserves physical_description in V3 JSON exports', async () => {
+    const character = makeCharacter({
+      data: {
+        spec: {
+          ...makeCharacter().data.spec,
+          physical_description: 'Tall with silver hair.',
+        },
+        extensions: {},
+      },
+    });
+
+    const result = await service.exportAsJSON(character);
+    expect(result.success).toBe(true);
+    const exported = JSON.parse(await result.blob!.text()) as {
+      data: { physical_description: string };
+    };
+    expect(exported.data.physical_description).toBe('Tall with silver hair.');
+  });
+});
+
 describe('CharacterExportService.exportVaultAsZip', () => {
   const service = new CharacterExportService();
 

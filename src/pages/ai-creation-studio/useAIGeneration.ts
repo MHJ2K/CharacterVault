@@ -6,13 +6,17 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { AIService, AIError } from "../../services/AIService";
 import { characterSettingsService } from "../../services/CharacterSettingsService";
-import type { AIConfig, SamplerSettings } from "../../db/characterTypes";
-import type { CharacterSpec } from "../../db/characterTypes";
+import type { AIConfig, SamplerSettings, CharacterSpec, StudioGenerationSettings } from "../../db/characterTypes";
 import type { GenerationField, GenerationState, FieldConfig } from "./types";
 import type { GenerationStyleTags } from "./tags/tagData";
 import { DEFAULT_STUDIO_GENERATION_SETTINGS, cloneStudioGenerationSettings } from "./studioGenerationDefaults";
-import { renderStudioPrompt, renderCharacterInfoPrompt, buildGenerationStyleInstructions, buildDescriptionStyleInstructions, buildNarrationFormatInstruction } from "./generationPrompts";
-import type { StudioGenerationSettings } from "../../db/characterTypes";
+import {
+    renderStudioPrompt,
+    renderCharacterInfoPrompt,
+    buildGenerationStyleInstructions,
+    buildDescriptionStyleInstructions,
+    buildNarrationFormatInstruction,
+} from "./generationPrompts";
 
 interface ChatMessage {
     role: "system" | "user" | "assistant";
@@ -26,7 +30,7 @@ const INITIAL_STATE: GenerationState = {
     generatedData: {},
     generatedReasoning: {},
     error: null,
-    failedField: null
+    failedField: null,
 };
 
 export interface UseAIGenerationResult {
@@ -62,41 +66,71 @@ export function useAIGeneration(): UseAIGenerationResult {
     const aiServiceRef = useRef<AIService | null>(null);
     const configRef = useRef<{ config: AIConfig; sampler: SamplerSettings } | null>(null);
     const stateRef = useRef<GenerationState>(state);
-    const isAbortedRef = useRef<boolean>(false);
+    const isAbortedRef = useRef(false);
+    const operationIdRef = useRef(0);
+    const mountedRef = useRef(true);
+    const configRequestIdRef = useRef(0);
     stateRef.current = state;
 
-    /** Cancel any in-flight request on the AIService and mark the current run as aborted. */
+    const isCurrentOperation = (operationId: number): boolean =>
+        mountedRef.current && operationId === operationIdRef.current && !isAbortedRef.current;
+
     const abortCurrent = useCallback(() => {
         isAbortedRef.current = true;
+        operationIdRef.current += 1;
+        configRequestIdRef.current += 1;
         aiServiceRef.current?.abort();
     }, []);
 
-    const loadConfig = useCallback(async (): Promise<boolean> => {
+    const beginOperation = useCallback((): number => {
+        abortCurrent();
+        isAbortedRef.current = false;
+        return ++operationIdRef.current;
+    }, [abortCurrent]);
+
+    const loadConfig = useCallback(async (operationId?: number): Promise<boolean> => {
+        const configRequestId = ++configRequestIdRef.current;
         try {
             const [config, sampler, studioGeneration] = await Promise.all([
                 characterSettingsService.getAISettings(),
                 characterSettingsService.getSamplerSettings(),
                 characterSettingsService.getStudioGenerationSettings(),
             ]);
+            if (
+                !mountedRef.current ||
+                configRequestId !== configRequestIdRef.current ||
+                (operationId !== undefined && operationId !== operationIdRef.current)
+            ) return false;
+
             const nextGenerationSettings = studioGeneration ?? DEFAULT_STUDIO_GENERATION_SETTINGS;
             generationSettingsRef.current = nextGenerationSettings;
             setGenerationSettings(nextGenerationSettings);
 
-            // For local endpoints (localhost, 127.0.0.1), API key is optional
-            const isLocalEndpoint = config.baseUrl && (config.baseUrl.includes("localhost") || config.baseUrl.includes("127.0.0.1") || config.baseUrl.includes("0.0.0.0"));
-
-            const hasConfig = !!(config.baseUrl && config.modelId && (config.apiKey || isLocalEndpoint));
+            const isLocalEndpoint = Boolean(
+                config.baseUrl &&
+                (config.baseUrl.includes("localhost") ||
+                    config.baseUrl.includes("127.0.0.1") ||
+                    config.baseUrl.includes("0.0.0.0"))
+            );
+            const hasConfig = Boolean(config.baseUrl && config.modelId && (config.apiKey || isLocalEndpoint));
             setIsConfigured(hasConfig);
 
             if (hasConfig) {
                 configRef.current = { config, sampler };
                 aiServiceRef.current = new AIService(config, sampler);
+            } else {
+                aiServiceRef.current = null;
             }
-
             return hasConfig;
         } catch (err) {
             console.error("[useAIGeneration] Failed to load config:", err);
-            setIsConfigured(false);
+            if (
+                mountedRef.current &&
+                configRequestId === configRequestIdRef.current &&
+                (operationId === undefined || operationId === operationIdRef.current)
+            ) {
+                setIsConfigured(false);
+            }
             return false;
         }
     }, []);
@@ -105,133 +139,132 @@ export function useAIGeneration(): UseAIGenerationResult {
         await loadConfig();
     }, [loadConfig]);
 
-    // Pre-check saved config on mount so `isConfigured` reflects reality immediately
     useEffect(() => {
         void loadConfig();
     }, [loadConfig]);
 
-    // Abort any in-flight generation when the hook unmounts (e.g. navigating away)
     useEffect(() => {
+        mountedRef.current = true;
         return () => {
+            mountedRef.current = false;
             abortCurrent();
         };
     }, [abortCurrent]);
 
     const buildMessages = useCallback(
-        (field: GenerationField, concept: string, data: Partial<CharacterSpec>): ChatMessage[] => {
+        (field: GenerationField, fieldConcept: string, data: Partial<CharacterSpec>): ChatMessage[] => {
             const settings = generationSettingsRef.current;
             const fieldConfig = settings.fields.find((item) => item.key === field);
             if (!fieldConfig) throw new Error(`Studio field is not configured: ${field}`);
 
             const { perspective, tense } = generationTagsRef.current;
             const style = perspective && tense
-                ? field === 'description'
+                ? field === "description"
                     ? buildDescriptionStyleInstructions(perspective, tense)
                     : buildGenerationStyleInstructions(perspective, tense)
                 : "";
             const narrationFormat = perspective ? buildNarrationFormatInstruction(perspective) : "";
             const userPrompt = renderStudioPrompt(fieldConfig.prompt, {
-                concept,
+                concept: fieldConcept,
                 name: data.name || "",
                 description: data.description || "",
                 style,
                 narrationFormat,
             });
 
-            return [{ role: "system", content: settings.systemPrompt }, { role: "user", content: userPrompt }];
+            return [
+                { role: "system", content: settings.systemPrompt },
+                { role: "user", content: userPrompt },
+            ];
         },
-        []
+        [],
     );
 
     const generateField = useCallback(
-        async (field: GenerationField, concept: string, currentData: Partial<CharacterSpec>): Promise<string> => {
+        async (
+            field: GenerationField,
+            fieldConcept: string,
+            currentData: Partial<CharacterSpec>,
+            operationId: number,
+        ): Promise<string> => {
             const service = aiServiceRef.current;
             if (!service) throw new Error("AI service not initialized");
 
-            const messages = buildMessages(field, concept, currentData);
-
+            const messages = buildMessages(field, fieldConcept, currentData);
             let accumulatedContent = "";
             let accumulatedReasoning = "";
 
             try {
                 const response = await service.chat(messages, undefined, (chunk: { content?: string; reasoning?: string }) => {
-                    if (isAbortedRef.current) return;
-
-                    if (chunk.content) {
-                        accumulatedContent += chunk.content;
-                    }
-                    if (chunk.reasoning) {
-                        accumulatedReasoning += chunk.reasoning;
-                    }
-
+                    if (!isCurrentOperation(operationId)) return;
+                    if (chunk.content) accumulatedContent += chunk.content;
+                    if (chunk.reasoning) accumulatedReasoning += chunk.reasoning;
                     setState((prev) => ({
                         ...prev,
                         generatedData: { ...prev.generatedData, [field]: accumulatedContent },
-                        generatedReasoning: { ...prev.generatedReasoning, [field]: accumulatedReasoning }
+                        generatedReasoning: { ...prev.generatedReasoning, [field]: accumulatedReasoning },
                     }));
                 });
 
+                if (!isCurrentOperation(operationId)) {
+                    throw new AIError("Request was cancelled", "unknown");
+                }
                 const content = response.content || "";
                 if (!content.trim()) {
-                    throw new AIError(`Generation returned empty content for "${field}". The model may have errored during generation.`, "unknown");
+                    throw new AIError(
+                        `Generation returned empty content for "${field}". The model may have errored during generation.`,
+                        "unknown",
+                    );
                 }
-
                 return content;
             } catch (err) {
-                // Don't update state if aborted
-                if (!isAbortedRef.current) {
+                if (isCurrentOperation(operationId)) {
                     setState((prev) => ({
                         ...prev,
                         failedField: field,
                         generatedData: { ...prev.generatedData, [field]: undefined },
-                        generatedReasoning: { ...prev.generatedReasoning, [field]: undefined }
+                        generatedReasoning: { ...prev.generatedReasoning, [field]: undefined },
                     }));
                 }
                 throw err;
             }
         },
-        [buildMessages]
+        [buildMessages],
     );
 
     const start = useCallback(
         async (newConcept: string, tags: GenerationStyleTags) => {
             if (!newConcept.trim()) return;
             if (!tags.perspective || !tags.tense) {
-                setState({
-                    ...INITIAL_STATE,
-                    status: "error",
-                    error: "Choose one perspective and one tense before generating."
-                });
+                if (mountedRef.current) {
+                    setState({
+                        ...INITIAL_STATE,
+                        status: "error",
+                        error: "Choose one perspective and one tense before generating.",
+                    });
+                }
                 return;
             }
 
             const trimmedConcept = newConcept.trim();
             setConcept(trimmedConcept);
-
             generationTagsRef.current = tags;
-            setGenerationTags(tags);
+            if (mountedRef.current) setGenerationTags(tags);
 
-            // Cancel any in-flight request before starting a new one
-            abortCurrent();
-
-            const hasConfig = await loadConfig();
+            const operationId = beginOperation();
+            const hasConfig = await loadConfig(operationId);
+            if (!isCurrentOperation(operationId)) return;
             if (!hasConfig) {
                 setState({
                     ...INITIAL_STATE,
                     status: "error",
-                    error: "AI is not configured. Please configure your AI settings first."
+                    error: "AI is not configured. Please configure your AI settings first.",
                 });
                 return;
             }
 
-            isAbortedRef.current = false;
             setIsLoading(true);
-            setState({
-                ...INITIAL_STATE,
-                status: "generating",
-                currentField: "name"
-            });
-
+            setState({ ...INITIAL_STATE, status: "generating", currentField: "name" });
             const generatedData: Partial<CharacterSpec> = {};
             const fieldOrder = generationSettingsRef.current.fields
                 .filter((field) => field.enabled || field.key === "name")
@@ -239,150 +272,97 @@ export function useAIGeneration(): UseAIGenerationResult {
 
             try {
                 for (const field of fieldOrder) {
-                    // Check if aborted
-                    if (isAbortedRef.current) {
-                        throw new AIError("Request was cancelled", "unknown");
-                    }
-
-                    setState((prev) => ({
-                        ...prev,
-                        currentField: field,
-                        generatedData: { ...generatedData }
-                    }));
-
-                    const result = await generateField(field, trimmedConcept, generatedData);
-
-                    // Check again after async operation
-                    if (isAbortedRef.current) {
-                        throw new AIError("Request was cancelled", "unknown");
-                    }
-
+                    if (!isCurrentOperation(operationId)) return;
+                    setState((prev) => ({ ...prev, currentField: field, generatedData: { ...generatedData } }));
+                    const result = await generateField(field, trimmedConcept, generatedData, operationId);
+                    if (!isCurrentOperation(operationId)) return;
                     generatedData[field] = result;
-
                     setState((prev) => ({
                         ...prev,
                         completedFields: [...prev.completedFields, field],
-                        generatedData: { ...generatedData }
+                        generatedData: { ...generatedData },
                     }));
                 }
-
-                // Don't update to complete if aborted
-                if (!isAbortedRef.current) {
-                    setState((prev) => ({
-                        ...prev,
-                        status: "complete",
-                        currentField: null
-                    }));
+                if (isCurrentOperation(operationId)) {
+                    setState((prev) => ({ ...prev, status: "complete", currentField: null }));
                 }
             } catch (err) {
-                // Don't update state if aborted
-                if (!isAbortedRef.current) {
+                if (isCurrentOperation(operationId)) {
                     const errorMessage = err instanceof AIError ? err.message : "An unexpected error occurred during generation";
-
                     setState((prev) => ({
                         ...prev,
                         status: "error",
                         error: errorMessage,
                         failedField: prev.failedField ?? prev.currentField,
-                        currentField: null
+                        currentField: null,
                     }));
                 }
             } finally {
-                setIsLoading(false);
+                if (mountedRef.current && operationId === operationIdRef.current) setIsLoading(false);
             }
         },
-        [loadConfig, generateField, abortCurrent]
+        [beginOperation, generateField, loadConfig],
     );
 
     const abort = useCallback(() => {
         abortCurrent();
+        if (!mountedRef.current) return;
         setIsLoading(false);
-        setState((prev) => ({
-            ...prev,
-            status: "error",
-            currentField: null,
-            error: "Generation stopped by user."
-        }));
+        setState((prev) => ({ ...prev, status: "error", currentField: null, error: "Generation stopped by user." }));
     }, [abortCurrent]);
 
     const retryField = useCallback(
         async (field: GenerationField) => {
-            // Cancel any in-flight request before starting a new one
-            abortCurrent();
-
-            const hasConfig = await loadConfig();
+            const operationId = beginOperation();
+            const hasConfig = await loadConfig(operationId);
+            if (!isCurrentOperation(operationId)) return;
             if (!hasConfig) {
-                setState((prev) => ({
-                    ...prev,
-                    status: "error",
-                    error: "AI is not configured. Please configure your AI settings first."
-                }));
+                setState((prev) => ({ ...prev, status: "error", error: "AI is not configured. Please configure your AI settings first." }));
                 return;
             }
 
-            isAbortedRef.current = false;
             setIsLoading(true);
-            setState((prev) => ({
-                ...prev,
-                status: "generating",
-                currentField: field,
-                error: null,
-                failedField: null
-            }));
-
+            setState((prev) => ({ ...prev, status: "generating", currentField: field, error: null, failedField: null }));
             try {
                 const currentData = stateRef.current.generatedData;
-                const effectiveConcept = concept || currentData.name || "Character";
-                const result = await generateField(field, effectiveConcept, currentData);
-
-                // Don't update state if aborted
-                if (!isAbortedRef.current) {
-                    setState((prev) => ({
-                        ...prev,
-                        status: "complete",
-                        currentField: null,
-                        generatedData: { ...prev.generatedData, [field]: result },
-                        completedFields: Array.from(new Set([...prev.completedFields, field])),
-                        error: null,
-                        failedField: null
-                    }));
-                }
+                const result = await generateField(field, concept || currentData.name || "Character", currentData, operationId);
+                if (!isCurrentOperation(operationId)) return;
+                setState((prev) => ({
+                    ...prev,
+                    status: "complete",
+                    currentField: null,
+                    generatedData: { ...prev.generatedData, [field]: result },
+                    completedFields: Array.from(new Set([...prev.completedFields, field])),
+                    error: null,
+                    failedField: null,
+                }));
             } catch (err) {
-                // Don't update state if aborted
-                if (!isAbortedRef.current) {
-                    const errorMessage = err instanceof AIError ? err.message : "An unexpected error occurred during generation";
-
+                if (isCurrentOperation(operationId)) {
                     setState((prev) => ({
                         ...prev,
                         status: "error",
-                        error: errorMessage,
+                        error: err instanceof AIError ? err.message : "An unexpected error occurred during generation",
                         failedField: field,
-                        currentField: null
+                        currentField: null,
                     }));
                 }
             } finally {
-                setIsLoading(false);
+                if (mountedRef.current && operationId === operationIdRef.current) setIsLoading(false);
             }
         },
-        [loadConfig, generateField, concept, abortCurrent]
+        [beginOperation, concept, generateField, loadConfig],
     );
 
     const regenerateField = useCallback(
         async (field: GenerationField) => {
-            // Cancel any in-flight request before starting a new one
-            abortCurrent();
-
-            const hasConfig = await loadConfig();
+            const operationId = beginOperation();
+            const hasConfig = await loadConfig(operationId);
+            if (!isCurrentOperation(operationId)) return;
             if (!hasConfig) {
-                setState((prev) => ({
-                    ...prev,
-                    status: "error",
-                    error: "AI is not configured. Please configure your AI settings first."
-                }));
+                setState((prev) => ({ ...prev, status: "error", error: "AI is not configured. Please configure your AI settings first." }));
                 return;
             }
 
-            isAbortedRef.current = false;
             setIsLoading(true);
             setState((prev) => ({
                 ...prev,
@@ -392,58 +372,45 @@ export function useAIGeneration(): UseAIGenerationResult {
                 failedField: null,
                 completedFields: prev.completedFields.filter((f) => f !== field),
                 generatedData: { ...prev.generatedData, [field]: undefined },
-                generatedReasoning: { ...prev.generatedReasoning, [field]: undefined }
+                generatedReasoning: { ...prev.generatedReasoning, [field]: undefined },
             }));
-
             try {
                 const currentData = stateRef.current.generatedData;
-                const effectiveConcept = concept || currentData.name || "Character";
                 const contextData = { ...currentData, [field]: undefined };
-                const result = await generateField(field, effectiveConcept, contextData);
-
-                // Don't update state if aborted
-                if (!isAbortedRef.current) {
-                    setState((prev) => ({
-                        ...prev,
-                        status: "complete",
-                        currentField: null,
-                        generatedData: { ...prev.generatedData, [field]: result },
-                        completedFields: Array.from(new Set([...prev.completedFields, field])),
-                        error: null,
-                        failedField: null
-                    }));
-                }
+                const result = await generateField(field, concept || currentData.name || "Character", contextData, operationId);
+                if (!isCurrentOperation(operationId)) return;
+                setState((prev) => ({
+                    ...prev,
+                    status: "complete",
+                    currentField: null,
+                    generatedData: { ...prev.generatedData, [field]: result },
+                    completedFields: Array.from(new Set([...prev.completedFields, field])),
+                    error: null,
+                    failedField: null,
+                }));
             } catch (err) {
-                // Don't update state if aborted
-                if (!isAbortedRef.current) {
-                    const errorMessage = err instanceof AIError ? err.message : "An unexpected error occurred during generation";
-
+                if (isCurrentOperation(operationId)) {
                     setState((prev) => ({
                         ...prev,
                         status: "error",
-                        error: errorMessage,
+                        error: err instanceof AIError ? err.message : "An unexpected error occurred during generation",
                         failedField: field,
-                        currentField: null
+                        currentField: null,
                     }));
                 }
             } finally {
-                setIsLoading(false);
+                if (mountedRef.current && operationId === operationIdRef.current) setIsLoading(false);
             }
         },
-        [loadConfig, generateField, concept, abortCurrent]
+        [beginOperation, concept, generateField, loadConfig],
     );
 
     const continueGeneration = useCallback(async () => {
-        // Cancel any in-flight request before starting a new one
-        abortCurrent();
-
-        const hasConfig = await loadConfig();
+        const operationId = beginOperation();
+        const hasConfig = await loadConfig(operationId);
+        if (!isCurrentOperation(operationId)) return;
         if (!hasConfig) {
-            setState((prev) => ({
-                ...prev,
-                status: "error",
-                error: "AI is not configured. Please configure your AI settings first."
-            }));
+            setState((prev) => ({ ...prev, status: "error", error: "AI is not configured. Please configure your AI settings first." }));
             return;
         }
 
@@ -454,125 +421,87 @@ export function useAIGeneration(): UseAIGenerationResult {
             .filter((field) => !currentState.completedFields.includes(field));
         if (remaining.length === 0) return;
 
-        isAbortedRef.current = false;
         setIsLoading(true);
-        setState((prev) => ({
-            ...prev,
-            status: "generating",
-            error: null,
-            failedField: null
-        }));
-
+        setState((prev) => ({ ...prev, status: "generating", error: null, failedField: null }));
         const generatedData: Partial<CharacterSpec> = { ...currentState.generatedData };
         const trimmedConcept = concept || currentState.generatedData.name || "Character";
 
         try {
             for (const field of remaining) {
-                if (isAbortedRef.current) {
-                    throw new AIError("Request was cancelled", "unknown");
-                }
-
-                setState((prev) => ({
-                    ...prev,
-                    currentField: field,
-                    generatedData: { ...generatedData }
-                }));
-
-                const result = await generateField(field, trimmedConcept, generatedData);
-
-                // Check again after async operation
-                if (isAbortedRef.current) {
-                    throw new AIError("Request was cancelled", "unknown");
-                }
-
+                if (!isCurrentOperation(operationId)) return;
+                setState((prev) => ({ ...prev, currentField: field, generatedData: { ...generatedData } }));
+                const result = await generateField(field, trimmedConcept, generatedData, operationId);
+                if (!isCurrentOperation(operationId)) return;
                 generatedData[field] = result;
-
                 setState((prev) => ({
                     ...prev,
                     completedFields: Array.from(new Set([...prev.completedFields, field])),
-                    generatedData: { ...generatedData }
+                    generatedData: { ...generatedData },
                 }));
             }
-
-            // Don't update to complete if aborted
-            if (!isAbortedRef.current) {
-                setState((prev) => ({
-                    ...prev,
-                    status: "complete",
-                    currentField: null
-                }));
+            if (isCurrentOperation(operationId)) {
+                setState((prev) => ({ ...prev, status: "complete", currentField: null }));
             }
         } catch (err) {
-            // Don't update state if aborted
-            if (!isAbortedRef.current) {
-                const errorMessage = err instanceof AIError ? err.message : "An unexpected error occurred during generation";
-
+            if (isCurrentOperation(operationId)) {
                 setState((prev) => ({
                     ...prev,
                     status: "error",
-                    error: errorMessage,
+                    error: err instanceof AIError ? err.message : "An unexpected error occurred during generation",
                     failedField: prev.failedField ?? prev.currentField,
-                    currentField: null
+                    currentField: null,
                 }));
             }
         } finally {
-            setIsLoading(false);
+            if (mountedRef.current && operationId === operationIdRef.current) setIsLoading(false);
         }
-    }, [loadConfig, generateField, concept, abortCurrent]);
+    }, [beginOperation, concept, generateField, loadConfig]);
 
     const updateGeneratedField = useCallback((field: GenerationField, value: string) => {
-        setState((prev) => ({
-            ...prev,
-            generatedData: { ...prev.generatedData, [field]: value }
-        }));
+        if (!mountedRef.current) return;
+        setState((prev) => ({ ...prev, generatedData: { ...prev.generatedData, [field]: value } }));
     }, []);
 
     const generateCharacterInfo = useCallback(async (tags: string, currentInfo: string): Promise<string> => {
         const trimmedTags = tags.trim();
         if (!trimmedTags) throw new Error("Add at least one tag before generating character info.");
 
-        abortCurrent();
-        const hasConfig = await loadConfig();
-        if (!hasConfig) {
-            throw new Error("AI is not configured. Please configure your AI settings first.");
-        }
+        const operationId = beginOperation();
+        const hasConfig = await loadConfig(operationId);
+        if (!isCurrentOperation(operationId)) throw new AIError("Request was cancelled", "unknown");
+        if (!hasConfig) throw new Error("AI is not configured. Please configure your AI settings first.");
 
         const service = aiServiceRef.current;
         if (!service) throw new Error("AI service not initialized");
-
-        isAbortedRef.current = false;
         setIsGeneratingCharacterInfo(true);
         const settings = generationSettingsRef.current;
-        const trimmedInfo = currentInfo.trim();
-        const template = trimmedInfo
-            ? settings.characterInfoImprovePrompt
-            : settings.characterInfoGeneratePrompt;
-        const prompt = renderCharacterInfoPrompt(template, {
-            tags: trimmedTags,
-            characterInfo: trimmedInfo,
-        });
+        const template = currentInfo.trim() ? settings.characterInfoImprovePrompt : settings.characterInfoGeneratePrompt;
+        const prompt = renderCharacterInfoPrompt(template, { tags: trimmedTags, characterInfo: currentInfo.trim() });
         let accumulatedContent = "";
 
         try {
-            const response = await service.chat([
-                { role: "system", content: settings.systemPrompt },
-                { role: "user", content: prompt },
-            ], undefined, (chunk: { content?: string }) => {
-                if (isAbortedRef.current || !chunk.content) return;
-                accumulatedContent += chunk.content;
-                setConcept(accumulatedContent);
-            });
+            const response = await service.chat(
+                [{ role: "system", content: settings.systemPrompt }, { role: "user", content: prompt }],
+                undefined,
+                (chunk: { content?: string }) => {
+                    if (!isCurrentOperation(operationId) || !chunk.content) return;
+                    accumulatedContent += chunk.content;
+                    setConcept(accumulatedContent);
+                },
+            );
+            if (!isCurrentOperation(operationId)) throw new AIError("Request was cancelled", "unknown");
             const result = (response.content || accumulatedContent).trim();
             if (!result) throw new Error("Generation returned empty character info.");
             setConcept(result);
             return result;
         } finally {
-            setIsGeneratingCharacterInfo(false);
+            if (mountedRef.current && operationId === operationIdRef.current) setIsGeneratingCharacterInfo(false);
         }
-    }, [abortCurrent, loadConfig]);
+    }, [beginOperation, loadConfig]);
 
     const reset = useCallback(() => {
         abortCurrent();
+        if (!mountedRef.current) return;
         setState(INITIAL_STATE);
         setIsLoading(false);
         setIsGeneratingCharacterInfo(false);
@@ -582,11 +511,17 @@ export function useAIGeneration(): UseAIGenerationResult {
     }, [abortCurrent]);
 
     const fields: FieldConfig[] = generationSettings.fields
-        .filter((field) => field.enabled || field.key === 'name')
+        .filter((field) => field.enabled || field.key === "name")
         .map((field) => ({
-        key: field.key,
-        label: field.label,
-        icon: field.key === 'name' ? 'Type' : field.key === 'description' ? 'FileText' : field.key === 'first_mes' ? 'MessageCircle' : 'MessagesSquare',
+            key: field.key,
+            label: field.label,
+            icon: field.key === "name"
+                ? "Type"
+                : field.key === "description"
+                    ? "FileText"
+                    : field.key === "first_mes"
+                        ? "MessageCircle"
+                        : "MessagesSquare",
         }));
 
     return {
@@ -605,6 +540,6 @@ export function useAIGeneration(): UseAIGenerationResult {
         updateGeneratedField,
         reset,
         generateCharacterInfo,
-        isGeneratingCharacterInfo
+        isGeneratingCharacterInfo,
     };
 }

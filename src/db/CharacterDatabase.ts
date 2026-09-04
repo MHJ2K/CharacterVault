@@ -722,6 +722,7 @@ export class CharacterDatabase extends Dexie {
         this.characters,
         this.snapshots,
         this.snapshotIndex,
+        this.storedImages,
         this.characterListIndex,
         this.characterCustomContext,
         this.characterLorebookAttachments,
@@ -732,6 +733,7 @@ export class CharacterDatabase extends Dexie {
         await this.characterListIndex.delete(id);
         await this.snapshots.where('characterId').equals(id).delete();
         await this.snapshotIndex.where('characterId').equals(id).delete();
+        await this.cleanOrphanedImages();
         await this.characterCustomContext.delete(id);
         await this.characterLorebookAttachments.delete(id);
         await this.chatMessages.where('[ownerType+ownerId]').equals(['character', id]).delete();
@@ -984,7 +986,7 @@ export class CharacterDatabase extends Dexie {
     await this.transaction('rw', this.snapshots, this.storedImages, this.snapshotIndex, async () => {
       await this.snapshots.delete(snapshotId);
       await this.snapshotIndex.delete(snapshotId);
-      await this.cleanOrphanedImages(characterId);
+      await this.cleanOrphanedImages();
     });
   }
 
@@ -1005,7 +1007,7 @@ export class CharacterDatabase extends Dexie {
     await this.transaction('rw', this.snapshots, this.storedImages, this.snapshotIndex, async () => {
       await Promise.all(toDelete.map(entry => this.snapshots.delete(entry.id)));
       await Promise.all(toDelete.map(entry => this.snapshotIndex.delete(entry.id)));
-      await this.cleanOrphanedImages(characterId);
+      await this.cleanOrphanedImages();
     });
   }
 
@@ -1044,10 +1046,10 @@ export class CharacterDatabase extends Dexie {
    * @param {string} characterId - The character ID to check (optional - if not provided, checks all)
    * @returns {Promise<void>}
    */
-  async cleanOrphanedImages(characterId?: string): Promise<void> {
-    const metadata = characterId
-      ? await this.snapshotIndex.where('characterId').equals(characterId).toArray()
-      : await this.snapshotIndex.toArray();
+  async cleanOrphanedImages(): Promise<void> {
+    // Image rows are shared by snapshots from every character, so cleanup must
+    // always compare against the complete snapshot index.
+    const metadata = await this.snapshotIndex.toArray();
 
     const referencedHashes = new Set(
       metadata.map(entry => entry.imageHash).filter((hash): hash is string => hash !== null)
@@ -1113,7 +1115,6 @@ export class CharacterDatabase extends Dexie {
    * Preserves the snapshot's id, source, and createdAt. Used to update the
    * baseline ('open') snapshot with the current draft's content.
    * @param {string} snapshotId - Snapshot ID to overwrite
-   * @param {string} characterId - Character ID (for orphaned image cleanup)
    * @param {CharacterSnapshotPayload} payload - New payload (with image data)
    * @param {string} payloadHash - New payload hash
    * @param {string | null} imageHash - New image hash (null if no image)
@@ -1121,7 +1122,6 @@ export class CharacterDatabase extends Dexie {
    */
   async overwriteSnapshotPayload(
     snapshotId: string,
-    characterId: string,
     payload: CharacterSnapshotPayload,
     payloadHash: string,
     imageHash: string | null,
@@ -1146,7 +1146,7 @@ export class CharacterDatabase extends Dexie {
       });
       await this.snapshotIndex.update(snapshotId, { payloadHash, imageHash });
 
-      await this.cleanOrphanedImages(characterId);
+      await this.cleanOrphanedImages();
     });
   }
 

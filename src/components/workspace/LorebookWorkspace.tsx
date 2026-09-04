@@ -101,6 +101,7 @@ export function LorebookWorkspace(): React.ReactElement {
   const pendingSaveRef = useRef<Promise<VaultLorebook | null>>(Promise.resolve(null));
   const linkedSyncTimerRef = useRef<number | null>(null);
   const linkedSyncPromiseRef = useRef<Promise<void>>(Promise.resolve());
+  const lorebookSaveQueueRef = useRef<Promise<VaultLorebook | null>>(Promise.resolve(null));
   currentLorebookIdRef.current = currentLorebook?.id ?? null;
   currentLorebookRef.current = currentLorebook;
   titleDraftRef.current = titleDraft;
@@ -326,9 +327,12 @@ export function LorebookWorkspace(): React.ReactElement {
     return () => {
       // Leave paths already flushed. Only write here if a debounce is still pending
       // (workspace dropped without handleClose / handleOpenLinkedCharacter).
-      if (linkedSyncTimerRef.current === null) return;
-      window.clearTimeout(linkedSyncTimerRef.current);
-      linkedSyncTimerRef.current = null;
+      const hadPendingSync = linkedSyncTimerRef.current !== null;
+      if (hadPendingSync) {
+        window.clearTimeout(linkedSyncTimerRef.current!);
+        linkedSyncTimerRef.current = null;
+      }
+      if (!hadPendingSync) return;
       const lorebook = currentLorebookRef.current;
       if (lorebook) {
         void lorebookAttachmentService.writeVaultToLinkedCharacters(lorebook.id, lorebook);
@@ -341,26 +345,30 @@ export function LorebookWorkspace(): React.ReactElement {
       const lorebook = currentLorebookRef.current;
       if (!lorebook) return;
       setIsSaving(true);
-      const save = (async () => {
-        try {
-          let updated = await updateLorebookBook(lorebook.id, book);
-          const nextName = book.name?.trim();
-          if (nextName && nextName !== lorebook.name) {
-            updated = await updateLorebook(lorebook.id, { name: nextName });
-          }
-          if (updated) {
-            scheduleLinkedSync(updated);
-          }
-          return updated;
-        } finally {
-          setIsSaving(false);
+      const save = lorebookSaveQueueRef.current.then(async () => {
+        const latest = currentLorebookRef.current;
+        if (!latest || latest.id !== lorebook.id) return null;
+        let updated = await updateLorebookBook(latest.id, book);
+        const nextName = book.name?.trim();
+        if (nextName && nextName !== latest.name) {
+          updated = await updateLorebook(latest.id, { name: nextName });
         }
-      })();
-      pendingSaveRef.current = save.then(
+        if (updated) {
+          currentLorebookRef.current = updated;
+          scheduleLinkedSync(updated);
+        }
+        return updated;
+      });
+      lorebookSaveQueueRef.current = save.then(
         (updated) => updated,
         () => currentLorebookRef.current,
       );
-      await save;
+      pendingSaveRef.current = lorebookSaveQueueRef.current;
+      try {
+        await save;
+      } finally {
+        setIsSaving(false);
+      }
     },
     [updateLorebookBook, updateLorebook, scheduleLinkedSync],
   );
@@ -427,6 +435,14 @@ export function LorebookWorkspace(): React.ReactElement {
     await flushLinkedSync(latest);
     return latest;
   }, [updateLorebook, flushLinkedSync]);
+
+  useEffect(() => {
+    return () => {
+      void flushPendingLorebook().catch((error) => {
+        console.error('Failed to flush lorebook saves during cleanup:', error);
+      });
+    };
+  }, [flushPendingLorebook]);
 
   const handleClose = useCallback(async () => {
     try {

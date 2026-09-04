@@ -251,7 +251,7 @@ class CharacterSnapshotService {
 
         // Clean up orphaned images after deletions and repair for memory efficiency.
         if (openSnapshots.length > 1) {
-          await characterDb.cleanOrphanedImages(character.id);
+          await characterDb.cleanOrphanedImages();
         }
 
         return null;
@@ -489,7 +489,6 @@ class CharacterSnapshotService {
 
     await characterDb.overwriteSnapshotPayload(
       snapshotId,
-      character.id,
       fullPayload,
       payloadHash,
       imageHash,

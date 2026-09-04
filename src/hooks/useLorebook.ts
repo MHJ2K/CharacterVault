@@ -2,7 +2,7 @@
  * Hook for standalone lorebook vault state and operations.
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type {
   CharacterBook,
   CreateVaultLorebookInput,
@@ -43,9 +43,11 @@ export function useLorebook(): [LorebookResult, LorebookOperations] {
   const [currentLorebook, setCurrentLorebook] = useState<VaultLorebook | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const openRequestRef = useRef(0);
 
   /** Clear open vault lorebook from memory (used by character open and local close). */
   const dropLorebookPayload = useCallback(() => {
+    openRequestRef.current += 1;
     setCurrentLorebookId(null);
     setCurrentLorebook(null);
   }, []);
@@ -108,14 +110,20 @@ export function useLorebook(): [LorebookResult, LorebookOperations] {
   const openLorebook = useCallback(async (id: string) => {
     // Exclusive workspace: drop full character before loading a full vault book
     dropOpenCharacterPayload();
+    const requestId = ++openRequestRef.current;
     const book = await lorebookService.get(id);
-    if (!book) {
-      throw new Error('Lorebook not found');
+    if (!book || requestId !== openRequestRef.current) {
+      if (!book && requestId === openRequestRef.current) {
+        throw new Error('Lorebook not found');
+      }
+      return;
     }
     await lorebookService.markOpened(id);
+    if (requestId !== openRequestRef.current) return;
     setCurrentLorebookId(id);
     setCurrentLorebook(book);
     await lorebookSnapshotService.createFromLorebook(book, 'open');
+    if (requestId !== openRequestRef.current) return;
     await refreshLorebooks();
   }, [refreshLorebooks]);
 

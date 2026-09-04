@@ -424,6 +424,7 @@ export interface CharacterCardV2 {
   system_prompt: string;
   post_history_instructions: string;
   alternate_greetings: string[];
+  physical_description?: string;
   character_book?: CharacterBook;
   extensions: CharacterExtensions;
   // V3
