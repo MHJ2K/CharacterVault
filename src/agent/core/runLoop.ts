@@ -125,9 +125,12 @@ export async function runLoop(options: RunLoopOptions): Promise<RunLoopResult> {
   };
 
   const finish = async (reason: RunLoopResult['reason']): Promise<RunLoopResult> => {
-    await host.flush?.();
+    const pendingChanges = host.getPendingChanges?.() ?? [];
+    if (pendingChanges.length === 0) {
+      await host.flush?.();
+    }
     emit({ type: 'done', reason });
-    return { reason };
+    return pendingChanges.length > 0 ? { reason, pendingChanges } : { reason };
   };
 
   for (let turn = 0; turn < maxTurns; turn += 1) {

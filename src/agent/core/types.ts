@@ -1,3 +1,9 @@
+import type {
+  AgentChangeUpdate,
+  AgentCommitResult,
+  AgentPendingChange,
+} from './changes';
+
 export interface ParsedAction {
   name: string;
   headers: Record<string, string>;
@@ -20,6 +26,7 @@ export interface ActionResult {
   ok: boolean;
   toolName: string;
   message: string;
+  staged?: boolean;
 }
 
 export interface NativeToolCall {
@@ -75,6 +82,11 @@ export interface AgentHost {
   execute(action: ParsedAction): Promise<ActionResult>;
   /** Persist side effects once per run. No-op when nothing changed. */
   flush?(): Promise<void>;
+  /** Staged hosts expose proposed writes without persisting them. */
+  getPendingChanges?(): AgentPendingChange[];
+  updatePendingChange?(update: AgentChangeUpdate): boolean;
+  discardPendingChanges?(): void;
+  commitPendingChanges?(selectedIds?: ReadonlySet<string>): Promise<AgentCommitResult>;
 }
 
 export interface RunLoopOptions {
@@ -95,4 +107,5 @@ export interface RunLoopOptions {
 
 export interface RunLoopResult {
   reason: AgentDoneReason;
+  pendingChanges?: AgentPendingChange[];
 }

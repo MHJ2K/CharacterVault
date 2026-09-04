@@ -25,6 +25,8 @@ export interface UseCharacterAgentOptions {
   onRunningChange?: (running: boolean) => void;
   chatOwnerType: ChatOwnerType;
   chatOwnerId: string;
+  /** When false, edits are applied directly without the review modal. */
+  stageChanges?: boolean;
 }
 
 export type UseCharacterAgentReturn = UseAgentSessionReturn;
@@ -43,6 +45,7 @@ export function useCharacterAgent(options: UseCharacterAgentOptions): UseCharact
     onRunningChange,
     chatOwnerType,
     chatOwnerId,
+    stageChanges = true,
   } = options;
 
   const createHost = useCallback(
@@ -68,5 +71,6 @@ export function useCharacterAgent(options: UseCharacterAgentOptions): UseCharact
     chatOwnerType,
     chatOwnerId,
     chatPanel: 'agent',
+    stageChanges,
   });
 }

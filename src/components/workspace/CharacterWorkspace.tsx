@@ -9,7 +9,10 @@ import { createPortal } from 'react-dom';
 import { CharacterAgentChat, type AgentToolTarget } from '../../agent';
 import { useCharacterContext, CharacterEditorProvider, useCharacterEditorContext } from '../../context';
 import type { CharacterBook, CharacterSection, CharacterSpec, SectionMeta } from '../../db/characterTypes';
-import { createEmptyCharacterBook } from '../../db/characterTypes';
+import {
+  createEmptyCharacterBook,
+  DEFAULT_AGENT_STAGED_EDITS,
+} from '../../db/characterTypes';
 import { useChatPanelMode } from '../../hooks/useChatPanelMode';
 import { generateThumbnail } from '../../utils/thumbnail';
 import { SectionEditor } from '../editor/SectionEditor';
@@ -500,10 +503,10 @@ function CharacterHeader({
                 <span
                   role="status"
                   aria-live="polite"
-                  title="Changes appear when the run finishes. Use Snapshots to roll back."
+                  title="Proposed edits appear for your review when the run finishes."
                   className="text-accent animate-pulse sm:ml-2"
                 >
-                  Agent writing
+                  Agent working
                 </span>
               ) : null}
             </p>
@@ -799,7 +802,7 @@ function CharacterWorkspaceInner({
   setIsChatOpen,
   isMobile,
 }: CharacterWorkspaceInnerProps): React.ReactElement {
-  const { closeCharacter } = useCharacterContext();
+  const { closeCharacter, settings } = useCharacterContext();
   const closingRef = React.useRef(false);
   const [lorebookFocusEntry, setLorebookFocusEntry] = useState<{ id: number; nonce: number } | null>(
     null,
@@ -1145,6 +1148,9 @@ function CharacterWorkspaceInner({
                   onOpenTarget={openAgentTarget}
                   chatOwnerType="character"
                   chatOwnerId={currentCharacter?.id ?? ''}
+                  stageChanges={
+                    settings?.ui?.agentStagedEdits ?? DEFAULT_AGENT_STAGED_EDITS
+                  }
                 />
               ) : (
                 <AIChatPanel

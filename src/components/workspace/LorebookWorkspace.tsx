@@ -33,6 +33,7 @@ import type {
 } from '../../db/characterTypes';
 import {
   createEmptyCharacterBook,
+  DEFAULT_AGENT_STAGED_EDITS,
   DEFAULT_SETTINGS,
   EMPTY_CUSTOM_CONTEXT_META,
   normalizeDefaultChatPanel,
@@ -511,10 +512,10 @@ export function LorebookWorkspace(): React.ReactElement {
                   <span
                     role="status"
                     aria-live="polite"
-                    title="New entries appear when the run finishes. Use Snapshots to roll back."
+                    title="Proposed edits appear for your review when the run finishes."
                     className="text-accent animate-pulse sm:ml-2"
                   >
-                    Agent writing
+                    Agent working
                   </span>
                 ) : null}
               </p>
@@ -694,6 +695,7 @@ export function LorebookWorkspace(): React.ReactElement {
                   onClose={() => setIsChatOpen(false)}
                   onRunningChange={setAgentRunning}
                   onOpenTarget={openAgentTarget}
+                  stageChanges={settings?.ui?.agentStagedEdits ?? DEFAULT_AGENT_STAGED_EDITS}
                 />
               ) : (
                 <AIChatPanel

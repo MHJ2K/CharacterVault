@@ -33,6 +33,7 @@ import { isNativeToolsRejected } from '../../services/chatRequestRepair';
 import { getProviderSelectionId } from '../../services/providers';
 import { normalizeBaseUrl } from '../../utils/aiBaseUrl';
 import type { ChatMessage as ServiceChatMessage } from '../../services/AIService';
+import type { AgentPendingChange } from '../core/changes';
 import { AGENT_MAX_OUTPUT_TOKENS, runLoop } from '../core/runLoop';
 import { stripFences } from '../core/stripFences';
 import type { AgentHost, AgentMessage, AgentToolMode } from '../core/types';
@@ -56,6 +57,11 @@ export interface UseAgentSessionOptions {
   chatOwnerType: ChatOwnerType;
   chatOwnerId: string;
   chatPanel?: ChatPanel;
+  /**
+   * When false, staged edits are committed automatically at the end of each
+   * run and the review modal is never shown. Defaults to true.
+   */
+  stageChanges?: boolean;
 }
 
 function resolveAgentToolMode(config: AIConfig): AgentToolMode {
@@ -137,6 +143,18 @@ export interface UseAgentSessionReturn {
   isHydrating: boolean;
   hasOlderMessages: boolean;
   handleLoadOlder: () => Promise<void>;
+  pendingChanges: AgentPendingChange[] | null;
+  reviewError: string | null;
+  isApplyingChanges: boolean;
+  /** True when the review modal was closed but the staged changes are kept. */
+  reviewDismissed: boolean;
+  handleEditChange: (id: string, afterText: string) => void;
+  handleApproveChanges: (selectedIds: ReadonlySet<string>) => Promise<void>;
+  handleCancelChanges: () => void;
+  /** Close the review modal and keep the staged changes for later. */
+  handleDismissChanges: () => void;
+  /** Reopen the review modal; refreshes edited proposals from the host. */
+  handleReopenChanges: () => void;
 }
 
 export function useAgentSession(options: UseAgentSessionOptions): UseAgentSessionReturn {
@@ -151,6 +169,7 @@ export function useAgentSession(options: UseAgentSessionOptions): UseAgentSessio
     chatOwnerType,
     chatOwnerId,
     chatPanel = 'agent',
+    stageChanges = true,
   } = options;
 
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
@@ -167,6 +186,10 @@ export function useAgentSession(options: UseAgentSessionOptions): UseAgentSessio
   const [streamingReasoning, setStreamingReasoning] = useState('');
   const [streamingContent, setStreamingContent] = useState('');
   const [livePromptTokens, setLivePromptTokens] = useState<number | null>(null);
+  const [pendingChanges, setPendingChanges] = useState<AgentPendingChange[] | null>(null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [isApplyingChanges, setIsApplyingChanges] = useState(false);
+  const [reviewDismissed, setReviewDismissed] = useState(false);
 
   const aiServiceRef = useRef<AIService | null>(null);
   const abortedRef = useRef(false);
@@ -187,6 +210,9 @@ export function useAgentSession(options: UseAgentSessionOptions): UseAgentSessio
   } | null>(null);
   const runPromiseRef = useRef(Promise.resolve());
   const leavingRef = useRef(false);
+  const reviewHostRef = useRef<AgentHost | null>(null);
+  const pendingChangesRef = useRef<AgentPendingChange[] | null>(null);
+  const reviewDismissedRef = useRef(false);
   const seqByIdRef = useRef(new Map<string, number>());
   const maxSeqRef = useRef(0);
   const hasOlderRef = useRef(false);
@@ -197,6 +223,7 @@ export function useAgentSession(options: UseAgentSessionOptions): UseAgentSessio
   const chatOwnerTypeRef = useRef(chatOwnerType);
   const chatOwnerIdRef = useRef(chatOwnerId);
   const chatPanelRef = useRef(chatPanel);
+  const stageChangesRef = useRef(stageChanges);
 
   const createHostRef = useRef(createHost);
   const flushDraftRef = useRef(flushDraft);
@@ -217,6 +244,7 @@ export function useAgentSession(options: UseAgentSessionOptions): UseAgentSessio
   chatOwnerTypeRef.current = chatOwnerType;
   chatOwnerIdRef.current = chatOwnerId;
   chatPanelRef.current = chatPanel;
+  stageChangesRef.current = stageChanges;
 
   const threadRef = () => ({
     ownerType: chatOwnerTypeRef.current,
@@ -376,6 +404,19 @@ export function useAgentSession(options: UseAgentSessionOptions): UseAgentSessio
     setError(null);
   }, []);
 
+  const discardPendingReview = useCallback(() => {
+    reviewHostRef.current?.discardPendingChanges?.();
+    reviewHostRef.current = null;
+    pendingChangesRef.current = null;
+    reviewDismissedRef.current = false;
+    if (isMountedRef.current) {
+      setPendingChanges(null);
+      setReviewError(null);
+      setIsApplyingChanges(false);
+      setReviewDismissed(false);
+    }
+  }, []);
+
   const handleAbort = useCallback(() => {
     abortedRef.current = true;
     cancelStreamFlush();
@@ -388,6 +429,72 @@ export function useAgentSession(options: UseAgentSessionOptions): UseAgentSessio
     }
     onRunningChangeRef.current?.(false);
   }, [cancelStreamFlush]);
+
+  const handleEditChange = useCallback((id: string, afterText: string) => {
+    reviewHostRef.current?.updatePendingChange?.({ id, afterText });
+  }, []);
+
+  const handleApproveChanges = useCallback(
+    async (selectedIds: ReadonlySet<string>) => {
+      const host = reviewHostRef.current;
+      if (!host?.commitPendingChanges) return;
+      const staged = pendingChangesRef.current;
+      if (!staged || staged.length === 0) return;
+      setIsApplyingChanges(true);
+      setReviewError(null);
+      try {
+        const result = await host.commitPendingChanges(selectedIds);
+        if (result.conflicts.length > 0 || result.invalid.length > 0) {
+          const issues = [...result.conflicts, ...result.invalid]
+            .map((issue) => `${issue.change.label}: ${issue.message}`)
+            .join(' ');
+          setReviewError(issues);
+          return;
+        }
+        reviewDismissedRef.current = false;
+        if (isMountedRef.current) {
+          setPendingChanges(null);
+          setReviewDismissed(false);
+        }
+        reviewHostRef.current = null;
+        pendingChangesRef.current = null;
+      } catch (err) {
+        setReviewError(err instanceof Error ? err.message : 'Could not apply the changes.');
+      } finally {
+        if (isMountedRef.current) setIsApplyingChanges(false);
+      }
+    },
+    [],
+  );
+
+  const handleCancelChanges = useCallback(() => {
+    discardPendingReview();
+  }, [discardPendingReview]);
+
+  const handleDismissChanges = useCallback(() => {
+    const staged = pendingChangesRef.current;
+    if (!staged || staged.length === 0) return;
+    reviewDismissedRef.current = true;
+    if (isMountedRef.current) setReviewDismissed(true);
+  }, []);
+
+  const handleReopenChanges = useCallback(() => {
+    const host = reviewHostRef.current;
+    const staged = pendingChangesRef.current;
+    if (!host?.getPendingChanges || !staged || staged.length === 0) return;
+    const refreshed = host.getPendingChanges();
+    if (refreshed.length === 0) {
+      discardPendingReview();
+      return;
+    }
+    reviewDismissedRef.current = false;
+    pendingChangesRef.current = refreshed;
+    if (isMountedRef.current) {
+      setPendingChanges(refreshed);
+      setReviewError(null);
+      setReviewDismissed(false);
+    }
+  }, [discardPendingReview]);
 
   const abortInFlight = useCallback(() => {
     requestIdRef.current += 1;
@@ -420,6 +527,7 @@ export function useAgentSession(options: UseAgentSessionOptions): UseAgentSessio
     (updateUi: boolean) => {
       abortInFlight();
       dropTranscriptRefs();
+      discardPendingReview();
       if (updateUi && isMountedRef.current) {
         setChatHistory([]);
         setToolEventsByMessageId({});
@@ -434,7 +542,7 @@ export function useAgentSession(options: UseAgentSessionOptions): UseAgentSessio
         setStreamingContent('');
       }
     },
-    [abortInFlight, dropTranscriptRefs],
+    [abortInFlight, discardPendingReview, dropTranscriptRefs],
   );
 
   const releaseSessionRef = useRef(releaseSession);
@@ -480,6 +588,7 @@ export function useAgentSession(options: UseAgentSessionOptions): UseAgentSessio
 
   useEffect(() => {
     abortInFlight();
+    discardPendingReview();
     const generation = ++hydrateGenerationRef.current;
     hydratingRef.current = true;
     historyReadyRef.current = false;
@@ -550,7 +659,7 @@ export function useAgentSession(options: UseAgentSessionOptions): UseAgentSessio
     return () => {
       cancelled = true;
     };
-  }, [abortInFlight, chatOwnerType, chatOwnerId, chatPanel]);
+  }, [abortInFlight, chatOwnerType, chatOwnerId, chatPanel, discardPendingReview]);
 
   const handleLoadOlder = useCallback(async () => {
     if (
@@ -686,6 +795,40 @@ export function useAgentSession(options: UseAgentSessionOptions): UseAgentSessio
 
         const isCurrent = () => isMountedRef.current && requestId === requestIdRef.current;
         let runService: AIService | null = null;
+        let activeHost: AgentHost | null = null;
+
+        const applyDirectly = async (host: AgentHost, staged: AgentPendingChange[]) => {
+          if (staged.length === 0 || !isCurrent()) return;
+          try {
+            const result = await host.commitPendingChanges?.();
+            if (!result) return;
+            if (result.conflicts.length > 0 || result.invalid.length > 0) {
+              const issues = [...result.conflicts, ...result.invalid]
+                .map((issue) => `${issue.change.label}: ${issue.message}`)
+                .join(' ');
+              attachError(`Agent changes could not be applied: ${issues}`);
+            }
+          } catch (err) {
+            if (isCurrent()) {
+              attachError(
+                err instanceof Error ? err.message : 'Could not apply Agent changes.',
+              );
+            }
+          }
+        };
+
+        const settleStaged = async (host: AgentHost, staged: AgentPendingChange[]) => {
+          if (!stageChangesRef.current) {
+            await applyDirectly(host, staged);
+            return;
+          }
+          reviewHostRef.current = host;
+          pendingChangesRef.current = staged;
+          if (isMountedRef.current) {
+            setPendingChanges(staged);
+            setReviewError(null);
+          }
+        };
 
         try {
           await flushDraftRef.current();
@@ -700,6 +843,7 @@ export function useAgentSession(options: UseAgentSessionOptions): UseAgentSessio
           aiServiceRef.current = aiService;
 
           const host = createHostRef.current();
+          activeHost = host;
           const toolMode = resolveAgentToolMode(config);
 
           const result = await runLoop({
@@ -836,6 +980,11 @@ export function useAgentSession(options: UseAgentSessionOptions): UseAgentSessio
             },
           });
 
+          const stagedChanges = result.pendingChanges;
+          if (stagedChanges && stagedChanges.length > 0 && isCurrent()) {
+            await settleStaged(host, stagedChanges);
+          }
+
           if (result.reason === 'abort' && isCurrent()) {
             dropLookupOnlyMessage(lastAssistantIdRef.current);
             const speech = stripFences(streamContentRef.current.toString());
@@ -858,6 +1007,10 @@ export function useAgentSession(options: UseAgentSessionOptions): UseAgentSessio
           if (!isCurrent()) return;
           if (err instanceof AIError && err.message === 'Request was cancelled') {
             return;
+          }
+          const stagedChanges = activeHost?.getPendingChanges?.() ?? [];
+          if (stagedChanges.length > 0 && activeHost && isCurrent()) {
+            await settleStaged(activeHost, stagedChanges);
           }
           attachError(err instanceof Error ? err.message : 'Agent request failed');
         } finally {
@@ -900,6 +1053,10 @@ export function useAgentSession(options: UseAgentSessionOptions): UseAgentSessio
     ) {
       return;
     }
+    if (pendingChangesRef.current != null) {
+      if (!reviewDismissedRef.current) return;
+      discardPendingReview();
+    }
     const history = chatHistoryRef.current;
     const lastUserIndex = lastUserMessageIndex(history);
     if (lastUserIndex < 0) return;
@@ -927,7 +1084,7 @@ export function useAgentSession(options: UseAgentSessionOptions): UseAgentSessio
     errorByMessageIdRef.current = nextErrors;
     setErrorByMessageId(nextErrors);
     await startRun(lastUser.content, historyToKeep.slice(0, -1));
-  }, [startRun]);
+  }, [discardPendingReview, startRun]);
 
   const handleAsk = useCallback(
     async (question: string) => {
@@ -938,6 +1095,10 @@ export function useAgentSession(options: UseAgentSessionOptions): UseAgentSessio
         || !historyReadyRef.current
       ) {
         return;
+      }
+      if (pendingChangesRef.current != null) {
+        if (!reviewDismissedRef.current) return;
+        discardPendingReview();
       }
       const trimmed = question.trim();
       if (!trimmed) {
@@ -955,7 +1116,7 @@ export function useAgentSession(options: UseAgentSessionOptions): UseAgentSessio
       commitMessage(userMessage);
       await startRun(trimmed, priorHistory);
     },
-    [commitMessage, handleRegenerate, startRun],
+    [commitMessage, discardPendingReview, handleRegenerate, startRun],
   );
 
   return {
@@ -980,5 +1141,14 @@ export function useAgentSession(options: UseAgentSessionOptions): UseAgentSessio
     isHydrating,
     hasOlderMessages,
     handleLoadOlder,
+    pendingChanges,
+    reviewError,
+    isApplyingChanges,
+    reviewDismissed,
+    handleEditChange,
+    handleApproveChanges,
+    handleCancelChanges,
+    handleDismissChanges,
+    handleReopenChanges,
   };
 }

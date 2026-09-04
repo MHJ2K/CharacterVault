@@ -1,7 +1,8 @@
 import React, { useCallback, useMemo, type ReactNode } from 'react';
-import { Loader2 } from 'lucide-react';
+import { ListChecks, Loader2 } from 'lucide-react';
 import { AIChatView } from '../../components/ai/AIChatView';
 import type { ChatMessage } from '../../components/ai/types';
+import { AgentChangeReviewModal } from './AgentChangeReviewModal';
 import type {
   AIConfig,
   CharacterBook,
@@ -46,6 +47,8 @@ export interface CharacterAgentChatProps {
   onOpenTarget?: (target: AgentToolTarget) => void;
   chatOwnerType: ChatOwnerType;
   chatOwnerId: string;
+  /** When false, edits are applied directly without the review modal. */
+  stageChanges?: boolean;
 }
 
 const AGENT_SUGGESTIONS: readonly string[] = [
@@ -72,6 +75,7 @@ export function CharacterAgentChat({
   onOpenTarget,
   chatOwnerType,
   chatOwnerId,
+  stageChanges = true,
 }: CharacterAgentChatProps): React.ReactElement {
   const session = useCharacterAgent({
     aiConfig,
@@ -86,6 +90,7 @@ export function CharacterAgentChat({
     onRunningChange,
     chatOwnerType,
     chatOwnerId,
+    stageChanges,
   });
 
   const contextLabels = useMemo(() => {
@@ -124,6 +129,13 @@ export function CharacterAgentChat({
     session.chatHistory,
     session.livePromptTokens,
   ]);
+
+  const emptyBody = stageChanges
+    ? 'Ask it to fill or revise this card from custom context. It drafts spec fields, greetings, and the embedded lorebook, then asks you to review before anything is saved.'
+    : 'Ask it to fill or revise this card from custom context. Edits to spec fields, greetings, and the embedded lorebook are applied directly when the run finishes — Snapshots let you roll back.';
+  const composerHint = stageChanges
+    ? 'Stop, then Send to retry · Changes are staged for your approval'
+    : 'Stop, then Send to retry · Edits are applied directly';
 
   const renderMessage = useCallback(
     (message: ChatMessage, index: number) => {
@@ -174,19 +186,38 @@ export function CharacterAgentChat({
   );
 
   return (
-    <AIChatView
+    <>
+      <AIChatView
       title="Character agent"
       emptyTitle="Character agent"
-      emptyBody="Ask it to fill or revise this card from custom context. It writes spec fields, greetings, and the embedded lorebook. Use Snapshots if you need to roll back."
+      emptyBody={emptyBody}
       placeholder="Tell the agent what to write…"
       contextLabels={contextLabels}
       contextEmptyHint="Custom context is optional. Enable it in the AI Context panel to give the agent source notes."
-      composerHint="Stop, then Send to retry · Writes go into this card"
+      composerHint={composerHint}
       headerActions={
         <>
           <AgentToolModeChip mode={session.toolMode} />
           {headerActions}
         </>
+      }
+      aboveComposer={
+        session.pendingChanges && session.reviewDismissed ? (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-accent/25 bg-accent-soft/50 px-3 py-2">
+            <span className="text-xs text-fg-muted">
+              The Agent proposed {session.pendingChanges.length} change
+              {session.pendingChanges.length === 1 ? '' : 's'}. Nothing has been saved yet.
+            </span>
+            <button
+              type="button"
+              onClick={() => void session.handleReopenChanges()}
+              className="inline-flex items-center gap-1 rounded-lg bg-accent px-2 py-1 text-xs font-medium text-accent-fg transition-colors hover:opacity-90"
+            >
+              <ListChecks className="h-3.5 w-3.5" />
+              Review changes
+            </button>
+          </div>
+        ) : undefined
       }
       showReasoning={false}
       showRegenerate
@@ -224,6 +255,18 @@ export function CharacterAgentChat({
           <LiveSpeech text={session.streamingContent} isStreaming={session.isStreaming} />
         </div>
       }
-    />
+      />
+      {session.pendingChanges && !session.reviewDismissed ? (
+        <AgentChangeReviewModal
+          changes={session.pendingChanges}
+          isSaving={session.isApplyingChanges}
+          error={session.reviewError}
+          onChange={session.handleEditChange}
+          onApprove={(selectedIds) => void session.handleApproveChanges(selectedIds)}
+          onDismiss={() => void session.handleDismissChanges()}
+          onDiscard={() => void session.handleCancelChanges()}
+        />
+      ) : null}
+    </>
   );
 }

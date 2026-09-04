@@ -511,6 +511,11 @@ export interface CharacterVaultSettings {
     markdownImageOpenLinks?: boolean;
     /** Ask AI opens on this chat. Missing = Orion. */
     defaultChatPanel?: DefaultChatPanel;
+    /**
+     * When true, Agent mode drafts changes and asks for review before saving.
+     * When false, Agent edits apply directly at the end of each run.
+     */
+    agentStagedEdits?: boolean;
     spellcheck?: SpellcheckSettings;
   };
   ai?: AIConfig;
@@ -539,6 +544,7 @@ export const DEFAULT_CHARACTER_VAULT_SETTINGS: Omit<CharacterVaultSettings, 'id'
     sidebarWidth: 280,
     markdownImageOpenLinks: true,
     defaultChatPanel: 'orion',
+    agentStagedEdits: true,
     spellcheck: {
       enabled: true,
       language: 'en',
@@ -551,6 +557,9 @@ export const DEFAULT_CHARACTER_VAULT_SETTINGS: Omit<CharacterVaultSettings, 'id'
 
 /** Default for Studio → open control on Markdown image links */
 export const DEFAULT_MARKDOWN_IMAGE_OPEN_LINKS = true;
+
+/** Default for Studio → review Agent edits before applying them. */
+export const DEFAULT_AGENT_STAGED_EDITS = true;
 
 export type DefaultChatPanel = 'orion' | 'agent';
 

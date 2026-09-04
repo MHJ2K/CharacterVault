@@ -10,3 +10,4 @@ List of improvements to version 1.4.5:
 8. Improved Name and Description generation prompts significantly. Multiple characters names/descriptions handling, world name/description handling.
 9. Added a "Generate Idea" button to the AI Studio character info field. Uses the tags to generate an idea. If there is text inside the field, then it changes to a "Improve" button. Undo/Redo buttons are also added for it, so the user can go back and forth between generations.
 10. Main vault page now has proper user friendly pagination. Plus a settings button in the header to open settings.
+11. Added the feature to review/edit Agent edits before applying. Toggleable in settings' Studio tab.

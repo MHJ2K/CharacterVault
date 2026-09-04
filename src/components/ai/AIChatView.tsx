@@ -24,6 +24,8 @@ export interface AIChatViewProps {
   contextLabels: string[];
   contextEmptyHint: string;
   composerHint?: string;
+  /** Rendered directly above the input row at the bottom of the chat. */
+  aboveComposer?: ReactNode;
   headerActions?: ReactNode;
   showReasoning?: boolean;
   showRegenerate?: boolean;
@@ -65,6 +67,7 @@ export function AIChatView({
   contextLabels,
   contextEmptyHint,
   composerHint = 'Enter to send · Shift+Enter for a new line',
+  aboveComposer,
   headerActions,
   showReasoning = true,
   showRegenerate = true,
@@ -379,6 +382,7 @@ export function AIChatView({
       </div>
 
       <div className="p-3 border-t border-border bg-muted/50 shrink-0">
+        {aboveComposer ? <div className="mb-2">{aboveComposer}</div> : null}
         <div className="flex items-end gap-2">
           <textarea
             ref={inputRef}

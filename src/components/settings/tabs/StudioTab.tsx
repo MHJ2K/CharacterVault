@@ -84,6 +84,24 @@ export const StudioTab: React.FC<SettingsTabProps> = ({ draft, setDraft }) => {
             );
           })}
         </div>
+        <div className="mt-4 border-t border-border pt-4">
+          <SettingsToggle
+            stacked
+            checked={draft.agentStagedEdits}
+            onChange={(checked) =>
+              setDraft((prev) => ({ ...prev, agentStagedEdits: checked }))
+            }
+            label="Review Agent edits before applying"
+            description={
+              <>
+                When enabled, Agent mode drafts its changes and opens the diff review so you can
+                edit and approve before anything is saved. Turn this off to apply Agent edits
+                directly when a run finishes, without the review step — Snapshots still let you
+                roll back.
+              </>
+            }
+          />
+        </div>
       </SettingsCard>
 
       <SettingsCard>

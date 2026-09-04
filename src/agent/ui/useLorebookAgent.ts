@@ -28,6 +28,8 @@ export interface UseLorebookAgentOptions {
   onRunningChange?: (running: boolean) => void;
   chatOwnerType: ChatOwnerType;
   chatOwnerId: string;
+  /** When false, edits are applied directly without the review modal. */
+  stageChanges?: boolean;
 }
 
 export type UseLorebookAgentReturn = UseAgentSessionReturn;
@@ -45,6 +47,7 @@ export function useLorebookAgent(options: UseLorebookAgentOptions): UseLorebookA
     onRunningChange,
     chatOwnerType,
     chatOwnerId,
+    stageChanges = true,
   } = options;
 
   const createHost = useCallback(
@@ -69,5 +72,6 @@ export function useLorebookAgent(options: UseLorebookAgentOptions): UseLorebookA
     chatOwnerType,
     chatOwnerId,
     chatPanel: 'agent',
+    stageChanges,
   });
 }
