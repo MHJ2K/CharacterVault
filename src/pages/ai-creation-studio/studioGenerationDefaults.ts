@@ -11,7 +11,7 @@ Determine whether the tags describe a CHARACTER (person, entity, individual) or 
 </classification>
 
 <rules>
-- Write only the idea, in 1 to 3 concise sentences. Do not include a heading, preamble, or commentary.
+- Write only the idea, max 250 words, only go over if more info is required. Do not include a heading, preamble, or commentary.
 - The idea must contain at least one concrete, specific detail that would not be true of any other character with the same tags. "A proud elven mage" is useless. "An elven mage who lost her spellbook and now argues with the spirit trapped in her replacement" is an idea.
 - Tags are foundational elements, not the entire concept. Use them as seeds, not as a checklist to regurgitate. The idea should grow beyond the tags, not just restate them in sentence form.
 - Include a hook: a tension, contradiction, unresolved situation, or unusual combination that makes someone want to write this character. A flat description is not an idea.
@@ -31,7 +31,7 @@ Determine whether the idea describes a CHARACTER (person, entity, individual) or
 </classification>
 
 <rules>
-- Write only the improved idea, in 1 to 3 concise sentences. Do not include a heading, preamble, or commentary.
+- Write only the improved idea, max 250 words, only go over if more info is required. Do not include a heading, preamble, or commentary.
 - Improvement means: replacing generic details with specific ones, adding a concrete hook if none exists, and cutting anything that sounds like it could apply to any other character with the same tags.
 - Preserve specific, unique details from the current idea. Do not discard a good element just because you are rewriting. If the current idea has a genuine hook, keep it and sharpen it.
 - If the current idea contains any of these patterns, replace them with something concrete: "mysterious past," "hidden power," "dark secret," "lost their family," "unusual for their kind," "complex relationship with authority," "will do anything for those they care about." These are filler, not ideas.
@@ -70,7 +70,11 @@ If ambiguous, default to CHARACTER.
             key: "description",
             label: "Description",
             enabled: true,
-            prompt: `Write a character or world description for "\${name}" based on this concept: "\${concept}"\${style}
+            prompt: `Here's the full rewritten prompt:
+
+---
+
+Write a character or world description for "\${name}" based on this concept: "\${concept}"\${style}
 
 <classification>
 First, determine whether the concept describes a CHARACTER (a person, entity, or individual being) or a WORLD (a setting, society, location, system, or fictional reality). Apply the corresponding format below. Do not state which path you chose or explain your reasoning. Simply begin output in the correct format.
@@ -92,7 +96,7 @@ If ambiguous, default to CHARACTER.
 <format_rules>
 - Top-level heading: # \${name}
 - Section headings: ## Section Name
-- ALL sections except the designated prose section MUST be written as bullet lists using "- " (hyphen + space). Never use asterisks for bullets or bold. Never write a section as a prose paragraph unless it is the designated prose section.
+- Every section heading below is annotated with its required format. Follow the annotation. If it says "hyphen bullets," every line in that section must start with "- ". If it says "prose paragraph," write a paragraph with no bullets. Never use asterisks for bullets or bold. Never write a bulleted section as a prose paragraph or vice versa.
 - One bullet per idea. Do not pack multiple traits or details into a single long bullet. If a bullet runs more than two lines, split it.
 - Designated prose section: For characters, this is Background. For worlds, this is World Premise. 2-4 sentence prose paragraph, no bullets.
 - Tone: direct and specific. Write actual content in every bullet, not vague placeholders or "varies" hedging.
@@ -100,70 +104,87 @@ If ambiguous, default to CHARACTER.
 - If the concept involves multiple main characters or multiple distinct societies/settings, create each additional one as a separate top-level block beginning with "# [Name]". Each gets its own full set of sections. Cross-reference others by name only where the relationship is directly relevant. Do not nest descriptions inside each other.
 - Every trait, preference, skill, law, or cultural norm must be specific. Reject generic filler like "kind to those they care about" or "has a complex social structure." Replace with concrete, defining details.
 - Do not use em-dashes. Use commas, colons, semicolons, or periods.
+- Maximum 5 bullets per section unless required for depth or story. Density over volume. One perfect bullet beats three decent ones.
+- If a bullet can be implied by another section, do not write it. Redundancy wastes tokens.
 </format_rules>
 
 <character_sections>
-Include all sections relevant to this character. Omit any that genuinely do not apply. Write more bullets for sections that define the character (Personality, Sexual Kinks if applicable). Keep Likes, Dislikes, and Skills tight and punchy.
+Include all sections relevant to this character. Omit any that genuinely do not apply. Write more bullets for sections that define the character (Personality, Speech & Mannerisms, Relationships). Keep Likes, Dislikes, and Skills tight and punchy.
 
-## Appearance
+## Appearance (hyphen bullets, one per idea)
 Age, height, build, hair, eyes, distinguishing features, clothing/style. Lead with the most visually striking detail, not a height-and-weight roster. Make the reader see the character in one sentence before listing specifics.
 
-## Body
+## Body (hyphen bullets, one per idea)
 NSFW physical description. Body type, build details, genitalia (size, shape, distinguishing characteristics), ass, figure, skin, any sexual dimorphism or unusual features. Be clinical and vivid, not euphemistic. State sizes and proportions directly.
 
-## Personality
+## Personality (hyphen bullets, one per idea)
 Core traits, temperament, social behavior, internal contradictions. How they present to strangers versus how they behave around trusted people. Include at least one trait that complicates or contradicts another trait. Real people are not internally consistent.
 
-## Likes
+## Speech & Mannerisms (hyphen bullets, one per idea)
+How they talk and move. Verbal tics, sentence structure, vocabulary, accent or dialect. How speech shifts under stress, anger, or intimacy. Code-switching if applicable. Recurring physical gestures and posture shifts that signal emotional states. Facial tells and involuntary reactions that betray what they hide.
+
+## Relationships (hyphen bullets, one per idea)
+How they connect to people in general. Attachment style and how it manifests. How they show affection versus how they experience it. How they handle conflict with people they care about. Strangers versus trusted people. What makes them cut someone off versus what they forgive. If specific relationships define them, list each with what it reveals.
+
+## Relationship to {{user}} (hyphen bullets, one per idea)
+INCLUDE ONLY IF the character has a direct, preexisting, or structurally significant relationship with {{user}}. If not, omit entirely with no placeholder. How they behave around {{user}} versus everyone else. Power dynamic, emotional history, what {{user}} can do that no one else can. Where the relationship stands and what they want versus what they ask for.
+
+## Likes (hyphen bullets, one per idea)
 Genuine interests, passions, comforts. Specific to this character. Not generic ("music, friends, long walks"). What kind of music? Why? What does comfort look like for them specifically?
 
-## Dislikes
+## Dislikes (hyphen bullets, one per idea)
 Pet peeves, fears, aversions, triggers. Connect at least one dislike to a concrete experience or personality trait rather than listing it in isolation.
 
-## Skills
+## Skills (hyphen bullets, one per idea)
 Abilities, expertise, things they are known for or unusually good at. Distinguish between trained/professional skills and natural talents. Note any skill they are overconfident about.
 
-## Goals
+## Goals (hyphen bullets, one per idea)
 What drives them. Separate short-term wants from deeper motivations. If their stated goal differs from what they actually need, note the gap.
 
-## Sexual Kinks
+## Sexual Kinks (hyphen bullets, one per idea)
 Include if the concept implies a sexual character. What specifically arouses them, what dynamics they gravitate toward, how their personality manifests in sexual contexts. Kinks should feel like an extension of personality, not a disconnected list. Note any hard limits or things that do nothing for them.
 
-## Background
-Prose paragraph (2-4 sentences, no bullets). Origin, formative events, and how they arrived at their current situation. This section should make the character's Personality and Goals feel inevitable in retrospect. End on the present moment or the threshold of the story.
+## Background (prose paragraph, NO bullets)
+2-4 sentences. Origin, formative events, and how they arrived at their current situation. This section should make the character's Personality and Goals feel inevitable in retrospect. End on the present moment or the threshold of the story.
 </character_sections>
 
 <world_sections>
-Include all sections relevant to this world. Omit any that genuinely do not apply. Write more bullets for sections that define the world (Social Structure, Legal Framework, Culture). Keep Geography and Economy tight unless they are central to the concept.
+Include all sections relevant to this world. Omit any that genuinely do not apply. Write more bullets for sections that define the world (Social Structure, Legal Framework, Culture, Daily Life, Religion & Belief). Keep Geography and Economy tight unless they are central to the concept.
 
-## World Premise
-Prose paragraph (2-4 sentences, no bullets). The core concept and central hook. What makes this world different from ours or from generic genre templates. Everything else in the description should flow from this foundation.
+## World Premise (prose paragraph, NO bullets)
+2-4 sentences. The core concept and central hook. What makes this world different from ours or from generic genre templates. Everything else in the description should flow from this foundation.
 
-## Geography
+## Geography (hyphen bullets, one per idea)
 Physical layout, notable locations, climate, key regions. What does the map look like. Only include if the physical setting matters to the concept.
 
-## Social Structure
+## Social Structure (hyphen bullets, one per idea)
 Classes, castes, hierarchies, demographic groups. Who holds power, who does not, and the justifications for that arrangement. Include population breakdowns if relevant.
 
-## Legal Framework
+## Legal Framework (hyphen bullets, one per idea)
 Laws, governance, justice systems. What is codified, what is enforced, who enforces it. Note contradictions, loopholes, or areas where the law differs from practice.
 
-## Culture
+## Culture (hyphen bullets, one per idea)
 Daily life, norms, values, traditions, taboos. What is unremarkable here that would be shocking elsewhere. How average people live, work, and relate to each other.
 
-## Economy
+## Daily Life (hyphen bullets, one per idea)
+What an ordinary day looks like across social strata. What people eat, wear, do for work, do in free time. How mornings, evenings, weekends differ by class. What leisure looks like for wealthy versus poor. What an ordinary home, street, and workplace feel like. Sensory and behavioral detail, not abstraction.
+
+## Religion & Belief (hyphen bullets, one per idea)
+Dominant belief systems and core tenets. What happens after death, if anything. What is sacred, taboo, or cursed. How belief shapes daily behavior versus where it is performative. Minority or suppressed beliefs and how they survive. How belief intersects with power, law, and social structure.
+
+## Economy (hyphen bullets, one per idea)
 Currency, trade, key industries, wealth distribution. How people survive and how wealth flows. Only include if economic structure matters to the concept.
 
-## Technology
+## Technology (hyphen bullets, one per idea)
 Technology level, key innovations, limitations. If a magic or power system exists, how it works, its costs, its rules, and its societal impact. Be specific about mechanics, not vague about "powerful magic."
 
-## Key Factions
+## Key Factions (hyphen bullets, one per idea)
 Major organizations, political groups, religions, or power players. Their goals, methods, and conflicts with each other. Name them. Give each faction a concrete agenda, not a generic "seeks power."
 
-## Sexual Norms
+## Sexual Norms (hyphen bullets, one per idea)
 Include if sexual content is structurally relevant to the world. Cultural attitudes toward sex, taboos, institutional frameworks, how sexuality intersects with power and social structure. How people are taught to think about sex from childhood onward.
 
-## History
+## History (hyphen bullets, one per idea)
 Major events, turning points, how the world arrived at its current state. This section should make the World Premise and Social Structure feel inevitable in retrospect. Lead with the most consequential event, not a chronological timeline.
 </world_sections>
 
@@ -173,6 +194,8 @@ Major events, turning points, how the world arrived at its current state. This s
 - If the concept includes a world or setting, ground the character in that setting's specifics. Their Background, Dislikes, and Goals should reflect the world's rules and constraints.
 - The description should read like it was written by someone who has spent time with this character or lived in this world, not someone filling out a form.
 - Do not use em-dashes. Use commas, colons, semicolons, or periods.
+- Maximum 5 bullets per section unless required for depth or story. Density over volume. One perfect bullet beats three decent ones.
+- If a bullet can be implied by another section, do not write it. Redundancy wastes tokens.
 </consistency_rules>
 
 Begin output with "# \${name}". No preamble or closing remarks.`

@@ -18,6 +18,14 @@ import type {
   ToastNotification,
 } from './types';
 
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return (
+    target.isContentEditable ||
+    target.closest('input, textarea, select, [contenteditable="true"]') !== null
+  );
+}
+
 export function CharacterSettingsPanel({
   isOpen,
   onClose,
@@ -94,33 +102,24 @@ export function CharacterSettingsPanel({
     };
   }, []);
 
-  // Keyboard: Escape + arrow tab navigation
+  // Keyboard: Escape to close, but keep Backspace from navigating browser history.
   useEffect(() => {
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         onClose();
+        return;
       }
 
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-        const tabs = SETTINGS_TABS.map((t) => t.id);
-        const currentIndex = tabs.indexOf(activeTab);
-        let newIndex: number;
-
-        if (e.key === 'ArrowLeft') {
-          newIndex = currentIndex > 0 ? currentIndex - 1 : tabs.length - 1;
-        } else {
-          newIndex = currentIndex < tabs.length - 1 ? currentIndex + 1 : 0;
-        }
-
-        setActiveTab(tabs[newIndex]);
+      if (e.key === 'Backspace' && !isEditableTarget(e.target)) {
+        e.preventDefault();
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, activeTab, onClose]);
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => document.removeEventListener('keydown', handleKeyDown, true);
+  }, [isOpen, onClose]);
 
   // Focus trap
   useEffect(() => {
