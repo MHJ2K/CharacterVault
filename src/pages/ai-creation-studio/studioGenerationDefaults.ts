@@ -11,10 +11,9 @@ Determine whether the tags describe a CHARACTER (person, entity, individual) or 
 </classification>
 
 <rules>
-- Write only the idea, max 250 words, only go over if more info is required. Do not include a heading, preamble, or commentary.
+- Write only the idea, max 250 words, only go over if more info is required, use line breaks. Do not include a heading, preamble, or commentary.
 - The idea must contain at least one concrete, specific detail that would not be true of any other character with the same tags. "A proud elven mage" is useless. "An elven mage who lost her spellbook and now argues with the spirit trapped in her replacement" is an idea.
 - Tags are foundational elements, not the entire concept. Use them as seeds, not as a checklist to regurgitate. The idea should grow beyond the tags, not just restate them in sentence form.
-- Include a hook: a tension, contradiction, unresolved situation, or unusual combination that makes someone want to write this character. A flat description is not an idea.
 - Forbidden patterns: do not center the idea on "mysterious past," "hidden power," "dark secret," "lost their family," or "unusual for their kind." These are the default outputs for every tag combination. Reject them and find something specific.
 - If the tags imply a real-world culture or setting, ground the idea in that setting's specifics rather than generic genre approximation.
 - Do not use em-dashes. Use commas, colons, semicolons, or periods.
@@ -31,8 +30,7 @@ Determine whether the idea describes a CHARACTER (person, entity, individual) or
 </classification>
 
 <rules>
-- Write only the improved idea, max 250 words, only go over if more info is required. Do not include a heading, preamble, or commentary.
-- Improvement means: replacing generic details with specific ones, adding a concrete hook if none exists, and cutting anything that sounds like it could apply to any other character with the same tags.
+- Write only the improved idea, max 250 words, only go over if more info is required, use line breaks. Do not include a heading, preamble, or commentary.
 - Preserve specific, unique details from the current idea. Do not discard a good element just because you are rewriting. If the current idea has a genuine hook, keep it and sharpen it.
 - If the current idea contains any of these patterns, replace them with something concrete: "mysterious past," "hidden power," "dark secret," "lost their family," "unusual for their kind," "complex relationship with authority," "will do anything for those they care about." These are filler, not ideas.
 - The improved idea must contain at least one detail that would not be true of any other character or world with the same tags. If you cannot find that detail in the current idea, invent one.
@@ -70,11 +68,7 @@ If ambiguous, default to CHARACTER.
             key: "description",
             label: "Description",
             enabled: true,
-            prompt: `Here's the full rewritten prompt:
-
----
-
-Write a character or world description for "\${name}" based on this concept: "\${concept}"\${style}
+            prompt: `Write a character or world description for "\${name}" based on this concept: "\${concept}"\${style}
 
 <classification>
 First, determine whether the concept describes a CHARACTER (a person, entity, or individual being) or a WORLD (a setting, society, location, system, or fictional reality). Apply the corresponding format below. Do not state which path you chose or explain your reasoning. Simply begin output in the correct format.
@@ -104,7 +98,7 @@ If ambiguous, default to CHARACTER.
 - If the concept involves multiple main characters or multiple distinct societies/settings, create each additional one as a separate top-level block beginning with "# [Name]". Each gets its own full set of sections. Cross-reference others by name only where the relationship is directly relevant. Do not nest descriptions inside each other.
 - Every trait, preference, skill, law, or cultural norm must be specific. Reject generic filler like "kind to those they care about" or "has a complex social structure." Replace with concrete, defining details.
 - Do not use em-dashes. Use commas, colons, semicolons, or periods.
-- Maximum 5 bullets per section unless required for depth or story. Density over volume. One perfect bullet beats three decent ones.
+- Maximum 7 bullets per section unless required for depth or story. Density over volume. One perfect bullet beats three decent ones.
 - If a bullet can be implied by another section, do not write it. Redundancy wastes tokens.
 </format_rules>
 
@@ -194,7 +188,7 @@ Major events, turning points, how the world arrived at its current state. This s
 - If the concept includes a world or setting, ground the character in that setting's specifics. Their Background, Dislikes, and Goals should reflect the world's rules and constraints.
 - The description should read like it was written by someone who has spent time with this character or lived in this world, not someone filling out a form.
 - Do not use em-dashes. Use commas, colons, semicolons, or periods.
-- Maximum 5 bullets per section unless required for depth or story. Density over volume. One perfect bullet beats three decent ones.
+- Maximum 7 bullets per section unless required for depth or story. Density over volume. One perfect bullet beats three decent ones.
 - If a bullet can be implied by another section, do not write it. Redundancy wastes tokens.
 </consistency_rules>
 
@@ -204,7 +198,7 @@ Begin output with "# \${name}". No preamble or closing remarks.`
             key: "first_mes",
             label: "First Message",
             enabled: true,
-            prompt: `Write the opening roleplay message from "\${name}" to {{user}}.
+            prompt: `Write the opening roleplay message for "\${name}".
 
 <context>
 Concept: "\${concept}"
@@ -212,20 +206,52 @@ Description:
 \${description}
 </context>\${style}
 
-<format>
+<classification>
+First, determine whether "\${name}" is a CHARACTER or a WORLD based on the concept and description above. Apply the corresponding format below. Do not state which path you chose or explain your reasoning. Simply begin output in the correct format.
+
+Signals that this is a WORLD:
+- The concept or description describes a place, society, legal system, culture, or fictional reality
+- The "name" refers to a world, region, organization, or setting rather than a person
+- The description contains world sections (World Premise, Geography, Social Structure, etc.)
+
+Signals that this is a CHARACTER:
+- The concept or description describes a person, their appearance, personality, or behavior
+- The "name" belongs to an individual
+- The description contains character sections (Appearance, Personality, Background, etc.)
+
+If ambiguous, default to CHARACTER.
+</classification>
+
+<format_character>
 - \${narrationFormat}
 - Blend *actions/emotes* (asterisks) with "spoken dialogue" (quotes).
 - Naturally address or acknowledge {{user}} by name at least once.
 - 2-3 short paragraphs. Hook the reader without overwhelming them.
 - Do not use em-dashes. Use commas, colons, semicolons, or periods.
-</format>
+</format_character>
 
-<content>
+<content_character>
 - Establish a clear scene: location, what \${name} is doing, and the atmosphere.
 - Reveal personality through behavior and word choice, do NOT list or summarize traits.
-- Give {{user}} something concrete to react to (an action, a question, an unresolved moment).
+- Give {{user}} something concrete to react to (an action, a question, an unresolved moment, a physical sensation).
 - Voice, vocabulary, and mood must match the description above.
-</content>
+- End on a hook that invites {{user}} to respond.
+</content_character>
+
+<format_world>
+- \${narrationFormat}
+- Blend sensory environmental narration (*asterisks*) with overheard dialogue ("quotes") from NPCs or ambient noise.
+- 2-3 short paragraphs. Establish the world through a specific moment, not exposition.
+- Do not use em-dashes. Use commas, colons, semicolons, or periods.
+</format_world>
+
+<content_world>
+- Drop {{user}} into a specific location within the world with a specific sensory texture: what they see, hear, smell, feel on their skin.
+- Ground the world's rules through a concrete scene, not a summary. Show the social structure, cultural norms, or atmosphere through a moment of lived experience.
+- Give {{user}} something concrete to react to: a choice, a threat, a transaction, a social ritual, a physical sensation.
+- If the world has NSFW elements, let one surface naturally in the scene's fabric rather than announcing it.
+- End on a hook that invites {{user}} to act.
+</content_world>
 
 Output only the message. No labels, headers, or commentary.`
         },

@@ -10,7 +10,7 @@ vi.mock('../../src/db/CharacterDatabase', () => ({
   characterDb: { table, transaction },
 }));
 
-import { VaultBackupService } from '../../src/services/VaultBackupService';
+import { isEncryptedBackup, VaultBackupService } from '../../src/services/VaultBackupService';
 
 const tableNames = [
   'characters', 'snapshots', 'snapshotIndex', 'settings', 'storedImages',
@@ -19,13 +19,76 @@ const tableNames = [
   'lorebookSnapshotIndex', 'characterLorebookAttachments', 'chatMessages',
 ] as const;
 
-describe('VaultBackupService.restoreBackup', () => {
+function makeTables(rowsByName: Record<string, unknown[]> = {}) {
+  const tables = new Map<string, {
+    clear: ReturnType<typeof vi.fn>;
+    bulkPut: ReturnType<typeof vi.fn>;
+    toArray: ReturnType<typeof vi.fn>;
+  }>();
+  for (const name of tableNames) {
+    tables.set(name, {
+      clear: vi.fn(),
+      bulkPut: vi.fn(),
+      toArray: vi.fn().mockResolvedValue(rowsByName[name] ?? []),
+    });
+  }
+  table.mockImplementation((name: string) => tables.get(name));
+  return tables;
+}
+
+describe('VaultBackupService', () => {
+  it('exports only character tables for the Characters only option', async () => {
+    makeTables();
+
+    const archive = await new VaultBackupService().exportBackup('characters');
+    const zip = await JSZip.loadAsync(await archive.arrayBuffer());
+    const manifest = JSON.parse(await zip.file('manifest.json')!.async('string')) as {
+      option: string;
+      tables: string[];
+    };
+
+    expect(manifest.option).toBe('characters');
+    expect(manifest.tables).toEqual([
+      'characters', 'snapshots', 'snapshotIndex', 'storedImages',
+      'characterListIndex', 'characterCustomContext', 'chatMessages',
+    ]);
+    expect(zip.file('lorebooks.json')).toBeNull();
+    expect(zip.file('settings.json')).toBeNull();
+    expect(zip.file('chatMessages.json')).not.toBeNull();
+  });
+
+  it('redacts active and per-endpoint API keys from the safe backup', async () => {
+    makeTables({
+      settings: [{
+        id: 'app-settings',
+        ai: {
+          apiKey: 'active-secret',
+          apiKeysByBaseUrl: { 'https://example.test': 'saved-secret' },
+          modelId: 'model',
+        },
+      }],
+    });
+
+    const archive = await new VaultBackupService().exportBackup('everything-without-api-keys');
+    const zip = await JSZip.loadAsync(await archive.arrayBuffer());
+    const settings = JSON.parse(await zip.file('settings.json')!.async('string')) as Array<{
+      ai: { apiKey: string; apiKeysByBaseUrl: Record<string, string> };
+    }>;
+
+    expect(settings[0]?.ai).toMatchObject({ apiKey: '', apiKeysByBaseUrl: {} });
+  });
+
+  it('returns an encrypted backup that is not a readable ZIP', async () => {
+    makeTables();
+
+    const archive = await new VaultBackupService().exportBackup('encrypted', 'test passphrase');
+
+    await expect(isEncryptedBackup(archive)).resolves.toBe(true);
+    await expect(JSZip.loadAsync(archive)).rejects.toThrow();
+  });
+
   it('accepts valid context and attachment rows keyed by owner id', async () => {
-    const tables = new Map<string, { clear: ReturnType<typeof vi.fn>; bulkPut: ReturnType<typeof vi.fn> }>();
-    for (const name of tableNames) {
-      tables.set(name, { clear: vi.fn(), bulkPut: vi.fn() });
-    }
-    table.mockImplementation((name: string) => tables.get(name));
+    const tables = makeTables();
     transaction.mockImplementation(async (_mode: string, _tables: unknown[], callback: () => Promise<void>) => callback());
 
     const zip = new JSZip();
