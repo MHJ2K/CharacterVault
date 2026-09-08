@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildDescriptionPrompt,
   buildNamePrompt,
+  getDefaultStudioFieldConfig,
   renderCharacterInfoPrompt,
   renderStudioPrompt,
 } from '../../../src/pages/ai-creation-studio/generationPrompts';
@@ -46,6 +47,16 @@ describe('AI Studio generation prompts', () => {
     expect(prompt).toContain('third-person omniscient style');
     expect(prompt).toContain('Use past tense throughout.');
     expect(prompt).toContain('Descriptions are character-card reference material');
+  });
+
+  it('includes Scenario as an enabled default generation field', () => {
+    const scenario = getDefaultStudioFieldConfig('scenario');
+
+    expect(scenario.label).toBe('Scenario');
+    expect(scenario.enabled).toBe(true);
+    expect(scenario.prompt).toContain('${name}');
+    expect(scenario.prompt).toContain('${description}');
+    expect(scenario.prompt).toContain('{{user}}');
   });
 
   it('provides both character info prompt defaults with the supported placeholders', () => {

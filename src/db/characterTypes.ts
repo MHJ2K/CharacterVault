@@ -481,7 +481,7 @@ export interface AITagCategory {
   tags: string[];
 }
 
-export type StudioGenerationField = 'name' | 'description' | 'first_mes' | 'mes_example';
+export type StudioGenerationField = 'name' | 'description' | 'scenario' | 'first_mes' | 'mes_example';
 
 export interface StudioGenerationFieldConfig {
   key: StudioGenerationField;

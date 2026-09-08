@@ -60,7 +60,7 @@ If ambiguous, default to CHARACTER.
 - Forbidden overused names and their variants: Elara, Elysia, Seraphina, Lyra, Aurora, Celeste, Isabella, Sarah, Blackwood, Kestrel, Raven, Shadow, Moon, Frost, Storm, Silver, Vespara, Vaelithra, Kael, Kaelen, Kaelith, Thane, Draven, Zephyr, Nyx, Aether, Ember, Luna, Nova, Sage, Rowan, Kai, Ren, Ash, Ashe.
 - Forbidden overused world names and their variants: Avalon, Eldoria, Nymeria, Thalassia, Vortis, Karnath, Eryndor, Sylvanthor, Draenor, Aetheria, the Voidlands, the Ashlands, the Sundering, any "Land of [Noun]" construction.
 - Output the name only: no titles, honorifics, quotes, punctuation marks, or explanation. If generating multiple names, put each on its own line with no separators, labels, or commentary.
-- If more than one main character or world is present in the concept, generate a name for each. Output one name per line in order of appearance or prominence.
+- If more than one main character or world is present in the concept, generate a name for each. Output each name separated by commas in order of appearance or prominence.
 - Do not use em-dashes. Use commas, colons, semicolons, or periods.
 </rules>`
         },
@@ -193,6 +193,57 @@ Major events, turning points, how the world arrived at its current state. This s
 </consistency_rules>
 
 Begin output with "# \${name}". No preamble or closing remarks.`
+        },
+        {
+            key: "scenario",
+            label: "Scenario",
+            enabled: true,
+            prompt: `Write the roleplay scenario for "\${name}" based on this concept and description.
+
+<context>
+Concept: "\${concept}"
+Description:
+\${description}
+</context>
+
+<classification>
+First, determine whether the concept describes a CHARACTER (a person, entity, or individual being) or a WORLD (a setting, society, location, system, or fictional reality). Apply the corresponding rules below. Do not state which path you chose or explain your reasoning. Simply begin output in the correct format.
+
+Signals that the concept is a WORLD:
+- It describes a place, society, legal system, culture, or fictional reality
+- It references populations, social structures, governance, or systemic rules
+- The "name" refers to a world, region, organization, or setting rather than a person
+- It describes how a society works rather than who a person is
+
+Signals that the concept is a CHARACTER:
+- It describes a person, their appearance, personality, history, or relationships
+- The "name" belongs to an individual
+- It centers on personal traits, goals, and individual behavior
+
+If ambiguous, default to CHARACTER.
+</classification>
+
+<rules>
+- Write in detached third person. Do not use second person. The scenario is a static map of the situation, not a scene that unfolds in real-time.
+- Describe established states, past events that have already occurred, and the current arrangement. Do not narrate action happening moment by moment. The scenario is the architecture the roleplay orbits, not a sequence of events.
+- Establish {{user}}'s position, role, and capabilities within the scenario's power structure. {{user}} should not be a passive body that things happen to.
+- Weave relevant backstory into the present-tense setup rather than separating it as biography. Let history inform the current state without recounting it as summary.
+- Write only the scenario content, not a greeting, opening message, character biography, or explanation.
+- Make the setup specific and actionable, giving {{user}} a clear context.
+- Keep the scenario consistent with the concept and description. Use {{user}} for the player name placeholder where appropriate.
+- 1-3 concise paragraphs. 300 words max. Do not use headings, labels, or bullet points.
+- Do not use em-dashes. Use commas, colons, semicolons, or periods.
+</rules>
+
+<character_rules>
+- Map the relational dynamics between all characters and {{user}}: tensions, competing interests, emotional geometry, power structures. The scenario should define how characters relate to each other and to {{user}}, not merely list who is present.
+</character_rules>
+
+<world_rules>
+- Describe the world's current state and the structures that define it: social hierarchies, legal frameworks, institutional forces, factional tensions. Establish {{user}}'s position within these structures: what class, role, status, or function {{user}} occupies, and what agency {{user}} has within those constraints.
+</world_rules>
+
+Output only the scenario. No preamble or closing remarks.`
         },
         {
             key: "first_mes",

@@ -216,7 +216,7 @@ export const AICreationStudio: React.FC = () => {
                         name: state.generatedData.name || "",
                         description: state.generatedData.description || "",
                         personality: "",
-                        scenario: "",
+                        scenario: state.generatedData.scenario || "",
                         first_mes: state.generatedData.first_mes || "",
                         mes_example: state.generatedData.mes_example || "",
                         system_prompt: "",

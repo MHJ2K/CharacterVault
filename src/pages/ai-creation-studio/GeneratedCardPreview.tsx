@@ -4,7 +4,7 @@
  */
 
 import React, { useRef, useEffect, useState, memo } from 'react';
-import { Type, FileText, MessageCircle, MessagesSquare, Sparkles } from 'lucide-react';
+import { Type, FileText, Map, MessageCircle, MessagesSquare, Sparkles } from 'lucide-react';
 import type { FieldConfig, GenerationField } from './types';
 import { estimateTokens } from '../../services/AIService';
 
@@ -66,6 +66,7 @@ interface GeneratedCardPreviewProps {
 const FIELD_ICONS: Record<GenerationField, React.ReactNode> = {
   name: <Type className="w-4 h-4" />,
   description: <FileText className="w-4 h-4" />,
+  scenario: <Map className="w-4 h-4" />,
   first_mes: <MessageCircle className="w-4 h-4" />,
   mes_example: <MessagesSquare className="w-4 h-4" />,
 };
@@ -73,6 +74,7 @@ const FIELD_ICONS: Record<GenerationField, React.ReactNode> = {
 const FIELD_PLACEHOLDERS: Record<GenerationField, string> = {
   name: 'Character name...',
   description: 'Character description...',
+  scenario: 'Roleplay scenario...',
   first_mes: 'First message...',
   mes_example: 'Example dialogues...',
 };

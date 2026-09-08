@@ -519,9 +519,11 @@ export function useAIGeneration(): UseAIGenerationResult {
                 ? "Type"
                 : field.key === "description"
                     ? "FileText"
-                    : field.key === "first_mes"
-                        ? "MessageCircle"
-                        : "MessagesSquare",
+                    : field.key === "scenario"
+                        ? "Map"
+                        : field.key === "first_mes"
+                            ? "MessageCircle"
+                            : "MessagesSquare",
         }));
 
     return {
