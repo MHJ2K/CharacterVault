@@ -9,7 +9,7 @@ const FIELD_PLACEHOLDERS = '${concept}, ${name}, ${description}, ${style}, ${nar
 const CHARACTER_INFO_PLACEHOLDERS = '${tags}, ${characterInfo}';
 
 export const StudioGenerationTab: React.FC<SettingsTabProps> = ({ draft, setDraft }) => {
-  const [expanded, setExpanded] = useState<Set<StudioGenerationField>>(new Set(['name', 'scenario']));
+  const [expanded, setExpanded] = useState<Set<StudioGenerationField>>(new Set());
   const fields = draft.studioGeneration.fields;
 
   const update = (generation: typeof draft.studioGeneration) =>
