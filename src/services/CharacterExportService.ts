@@ -14,6 +14,8 @@ import type {
 } from '../db/characterTypes';
 import { lorebookService } from './LorebookService';
 
+const MAX_EXPORTED_IMAGE_DIMENSION = 1024;
+
 /**
  * Character Export Service
  */
@@ -501,28 +503,40 @@ export class CharacterExportService {
   /**
    * Convert any browser-supported image data URL to a PNG buffer.
    * PNG card metadata can only be embedded in a valid PNG container.
+   *
+   * Re-encoding through a canvas removes bulky source metadata and limits very
+   * large images to a card-friendly size. The original PNG is retained when
+   * it is already smaller than the re-encoded image and does not need scaling.
    */
   private async convertImageToPNG(dataURL: string): Promise<ArrayBuffer> {
-    const blob = await this.dataURLToBlob(dataURL);
-    if (blob.type === 'image/png' || dataURL.startsWith('data:image/png')) {
-      return blob.arrayBuffer();
-    }
-
-    const bitmap = await createImageBitmap(blob);
+    const sourceBlob = await this.dataURLToBlob(dataURL);
+    const sourceIsPNG = sourceBlob.type === 'image/png' || dataURL.startsWith('data:image/png');
+    const bitmap = await createImageBitmap(sourceBlob);
     try {
+      const scale = Math.min(
+        1,
+        MAX_EXPORTED_IMAGE_DIMENSION / Math.max(bitmap.width, bitmap.height),
+      );
+      const width = Math.max(1, Math.round(bitmap.width * scale));
+      const height = Math.max(1, Math.round(bitmap.height * scale));
       const canvas = document.createElement('canvas');
-      canvas.width = bitmap.width;
-      canvas.height = bitmap.height;
+      canvas.width = width;
+      canvas.height = height;
       const context = canvas.getContext('2d');
       if (!context) {
         throw new Error('Unable to create a canvas for image conversion.');
       }
-      context.drawImage(bitmap, 0, 0);
+      context.drawImage(bitmap, 0, 0, width, height);
       const pngBlob = await new Promise<Blob | null>((resolve) => {
         canvas.toBlob(resolve, 'image/png');
       });
       if (!pngBlob) {
         throw new Error('Unable to convert image to PNG.');
+      }
+
+      const needsResize = width !== bitmap.width || height !== bitmap.height;
+      if (sourceIsPNG && !needsResize && sourceBlob.size <= pngBlob.size) {
+        return sourceBlob.arrayBuffer();
       }
       return pngBlob.arrayBuffer();
     } finally {
