@@ -12,3 +12,4 @@ List of improvements to version 1.4.5:
 10. Main vault page now has proper user friendly pagination. Plus a settings button in the header to open settings.
 11. Added the feature to review/edit Agent edits before applying. Toggleable in settings' Studio tab.
 12. Added "Scenario" field to Studio.
+13. PNG export now caps the image to 1024px to prevent large PNG files. (For example, if an image is 2048x2048 it caps it to 1024x1024. Yes it does reduce quality by a tiny bit, but it's better than 10MB character files)
