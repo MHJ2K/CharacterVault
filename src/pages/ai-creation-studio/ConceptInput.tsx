@@ -20,6 +20,7 @@ import { hasAtLeastOneTag } from './inputState';
 import type { InputMode } from './types';
 import {
   formatTag,
+  CARD_TYPE_TAGS,
   getGenerationTags,
   hasRequiredGenerationTags,
   PERSPECTIVE_TAGS,
@@ -109,6 +110,14 @@ const GenerationStyleSelector: React.FC<GenerationStyleSelectorProps> = ({
       <div className="space-y-2">
         <div>
           <p className="font-medium text-fg-muted mb-1.5">
+            Card Type
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {CARD_TYPE_TAGS.map(renderTagButton)}
+          </div>
+        </div>
+        <div>
+          <p className="font-medium text-fg-muted mb-1.5">
             Perspective
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -125,9 +134,9 @@ const GenerationStyleSelector: React.FC<GenerationStyleSelectorProps> = ({
         </div>
       </div>
 
-      {(!generationTags.perspective || !generationTags.tense) && (
+      {(!generationTags.cardType || !generationTags.perspective || !generationTags.tense) && (
         <p className="text-xs text-warning">
-          Choose one perspective and one tense before generating.
+          Choose a card type, perspective, and tense before generating.
         </p>
       )}
     </div>
@@ -161,7 +170,7 @@ export const ConceptInput: React.FC<ConceptInputProps> = ({
   const hasTags = hasAtLeastOneTag(tagsText);
   const hasGenerationTags = hasRequiredGenerationTags(tagSelections);
   const canGenerate = isConfigured && hasTags && hasGenerationTags && !isGenerating && !isGeneratingCharacterInfo;
-  const canGenerateCharacterInfo = isConfigured && hasTags && !isGenerating && !isGeneratingCharacterInfo;
+  const canGenerateCharacterInfo = isConfigured && hasTags && Boolean(getGenerationTags(tagSelections).cardType) && !isGenerating && !isGeneratingCharacterInfo;
 
   return (
     <div className="space-y-5">
@@ -202,10 +211,10 @@ export const ConceptInput: React.FC<ConceptInputProps> = ({
           {/* Header */}
           <div className="text-center sm:text-left">
             <h2 className="text-lg font-bold text-fg">
-              What character do you want to create?
+              What card do you want to create?
             </h2>
             <p className="text-sm text-fg-muted mt-1">
-              Describe your idea and the AI will generate a complete character card.
+              Describe your idea and the AI will generate a complete card.
             </p>
           </div>
 
@@ -225,7 +234,7 @@ export const ConceptInput: React.FC<ConceptInputProps> = ({
 
           {/* Input Area */}
           <div className="relative">
-            <label htmlFor="studio-character-info" className="mb-2 block text-sm font-semibold text-fg">Character info <span className="font-normal text-fg-muted">(optional)</span></label>
+            <label htmlFor="studio-character-info" className="mb-2 block text-sm font-semibold text-fg">Card info <span className="font-normal text-fg-muted">(optional)</span></label>
             <textarea
               id="studio-character-info"
               value={concept}
@@ -240,8 +249,8 @@ export const ConceptInput: React.FC<ConceptInputProps> = ({
                 onClick={onCharacterInfoUndo}
                 disabled={characterInfoUndoCount === 0 || isGenerating || isGeneratingCharacterInfo}
                 className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border-strong text-fg-muted transition-colors hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-35"
-                title="Undo Character Info change"
-                aria-label="Undo Character Info change"
+                title="Undo Card Info change"
+                aria-label="Undo Card Info change"
               >
                 <Undo2 className="h-3.5 w-3.5" />
               </button>
@@ -250,8 +259,8 @@ export const ConceptInput: React.FC<ConceptInputProps> = ({
                 onClick={onCharacterInfoRedo}
                 disabled={characterInfoRedoCount === 0 || isGenerating || isGeneratingCharacterInfo}
                 className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border-strong text-fg-muted transition-colors hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-35"
-                title="Redo Character Info change"
-                aria-label="Redo Character Info change"
+                title="Redo Card Info change"
+                aria-label="Redo Card Info change"
               >
                 <Redo2 className="h-3.5 w-3.5" />
               </button>
@@ -315,7 +324,7 @@ export const ConceptInput: React.FC<ConceptInputProps> = ({
               ) : (
                 <Sparkles className="w-4 h-4" />
               )}
-              {isGenerating ? 'Generating Character...' : 'Generate Character'}
+              {isGenerating ? 'Generating Card...' : 'Generate Card'}
             </button>
             {isGenerating && (
               <button
@@ -331,13 +340,13 @@ export const ConceptInput: React.FC<ConceptInputProps> = ({
           {/* Required tag hint */}
           {isConfigured && !isGenerating && !hasTags && (
             <p className="text-xs text-warning text-center">
-              Add at least one tag before creating the character.
+              Add at least one tag before creating the card.
             </p>
           )}
 
           {isConfigured && !isGenerating && hasTags && !hasGenerationTags && (
             <p className="text-xs text-warning text-center">
-              Choose a generation style before creating the character.
+              Choose a card type and generation style before creating the card.
             </p>
           )}
         </>

@@ -16,6 +16,7 @@ import {
     buildGenerationStyleInstructions,
     buildDescriptionStyleInstructions,
     buildNarrationFormatInstruction,
+    applyCardTypeInstruction,
 } from "./generationPrompts";
 
 interface ChatMessage {
@@ -48,7 +49,7 @@ export interface UseAIGenerationResult {
     reloadConfig: () => Promise<void>;
     updateGeneratedField: (field: GenerationField, value: string) => void;
     reset: () => void;
-    generateCharacterInfo: (tags: string, currentInfo: string) => Promise<string>;
+    generateCharacterInfo: (tags: string, currentInfo: string, cardType: GenerationStyleTags["cardType"]) => Promise<string>;
     isGeneratingCharacterInfo: boolean;
 }
 
@@ -58,9 +59,9 @@ export function useAIGeneration(): UseAIGenerationResult {
     const [isLoading, setIsLoading] = useState(false);
     const [isGeneratingCharacterInfo, setIsGeneratingCharacterInfo] = useState(false);
     const [concept, setConcept] = useState("");
-    const [generationTags, setGenerationTags] = useState<GenerationStyleTags>({ perspective: null, tense: null });
+    const [generationTags, setGenerationTags] = useState<GenerationStyleTags>({ cardType: null, perspective: null, tense: null });
     const [generationSettings, setGenerationSettings] = useState<StudioGenerationSettings>(() => cloneStudioGenerationSettings());
-    const generationTagsRef = useRef<GenerationStyleTags>({ perspective: null, tense: null });
+    const generationTagsRef = useRef<GenerationStyleTags>({ cardType: null, perspective: null, tense: null });
     const generationSettingsRef = useRef<StudioGenerationSettings>(cloneStudioGenerationSettings());
 
     const aiServiceRef = useRef<AIService | null>(null);
@@ -157,20 +158,21 @@ export function useAIGeneration(): UseAIGenerationResult {
             const fieldConfig = settings.fields.find((item) => item.key === field);
             if (!fieldConfig) throw new Error(`Studio field is not configured: ${field}`);
 
-            const { perspective, tense } = generationTagsRef.current;
+            const { cardType, perspective, tense } = generationTagsRef.current;
             const style = perspective && tense
                 ? field === "description"
                     ? buildDescriptionStyleInstructions(perspective, tense)
                     : buildGenerationStyleInstructions(perspective, tense)
                 : "";
             const narrationFormat = perspective ? buildNarrationFormatInstruction(perspective) : "";
-            const userPrompt = renderStudioPrompt(fieldConfig.prompt, {
+            const renderedPrompt = renderStudioPrompt(fieldConfig.prompt, {
                 concept: fieldConcept,
                 name: data.name || "",
                 description: data.description || "",
                 style,
                 narrationFormat,
             });
+            const userPrompt = applyCardTypeInstruction(renderedPrompt, cardType);
 
             return [
                 { role: "system", content: settings.systemPrompt },
@@ -235,12 +237,12 @@ export function useAIGeneration(): UseAIGenerationResult {
     const start = useCallback(
         async (newConcept: string, tags: GenerationStyleTags) => {
             if (!newConcept.trim()) return;
-            if (!tags.perspective || !tags.tense) {
+            if (!tags.cardType || !tags.perspective || !tags.tense) {
                 if (mountedRef.current) {
                     setState({
                         ...INITIAL_STATE,
                         status: "error",
-                        error: "Choose one perspective and one tense before generating.",
+                        error: "Choose a card type, perspective, and tense before generating.",
                     });
                 }
                 return;
@@ -462,9 +464,10 @@ export function useAIGeneration(): UseAIGenerationResult {
         setState((prev) => ({ ...prev, generatedData: { ...prev.generatedData, [field]: value } }));
     }, []);
 
-    const generateCharacterInfo = useCallback(async (tags: string, currentInfo: string): Promise<string> => {
+    const generateCharacterInfo = useCallback(async (tags: string, currentInfo: string, cardType: GenerationStyleTags["cardType"]): Promise<string> => {
         const trimmedTags = tags.trim();
         if (!trimmedTags) throw new Error("Add at least one tag before generating character info.");
+        if (!cardType) throw new Error("Choose a card type before generating character info.");
 
         const operationId = beginOperation();
         const hasConfig = await loadConfig(operationId);
@@ -476,7 +479,10 @@ export function useAIGeneration(): UseAIGenerationResult {
         setIsGeneratingCharacterInfo(true);
         const settings = generationSettingsRef.current;
         const template = currentInfo.trim() ? settings.characterInfoImprovePrompt : settings.characterInfoGeneratePrompt;
-        const prompt = renderCharacterInfoPrompt(template, { tags: trimmedTags, characterInfo: currentInfo.trim() });
+        const prompt = applyCardTypeInstruction(
+            renderCharacterInfoPrompt(template, { tags: trimmedTags, characterInfo: currentInfo.trim() }),
+            cardType,
+        );
         let accumulatedContent = "";
 
         try {
@@ -506,8 +512,8 @@ export function useAIGeneration(): UseAIGenerationResult {
         setIsLoading(false);
         setIsGeneratingCharacterInfo(false);
         setConcept("");
-        generationTagsRef.current = { perspective: null, tense: null };
-        setGenerationTags({ perspective: null, tense: null });
+        generationTagsRef.current = { cardType: null, perspective: null, tense: null };
+        setGenerationTags({ cardType: null, perspective: null, tense: null });
     }, [abortCurrent]);
 
     const fields: FieldConfig[] = generationSettings.fields

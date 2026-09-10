@@ -12,3 +12,4 @@ List of improvements to version 1.4.5:
 10. Main vault page now has proper user friendly pagination. Plus a settings button in the header to open settings.
 11. Added the feature to review/edit Agent edits before applying. Toggleable in settings' Studio tab.
 12. Added "Scenario" field to Studio.
+13. Added Card Type selection to Generation Style in AI Studio with 'Character' and 'World/Setting' choices, so the AI is not confused about what the card is.

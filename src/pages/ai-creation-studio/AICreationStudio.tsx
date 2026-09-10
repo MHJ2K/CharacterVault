@@ -98,8 +98,10 @@ export const AICreationStudio: React.FC = () => {
 
     const handleGenerateCharacterInfo = useCallback(() => {
         if (!hasAtLeastOneTag(tagsText) || isGeneratingCharacterInfo || isLoading) return;
+        const { cardType } = getGenerationTags(tagSelections);
+        if (!cardType) return;
         setCharacterInfoError(null);
-        void generateCharacterInfo(tagsText, concept)
+        void generateCharacterInfo(tagsText, concept, cardType)
             .then((result) => {
                 setCharacterInfoUndo((previous) => [...previous, concept]);
                 setCharacterInfoRedo([]);
@@ -108,7 +110,7 @@ export const AICreationStudio: React.FC = () => {
             .catch((error: unknown) => {
                 setCharacterInfoError(error instanceof Error ? error.message : "Failed to generate character info.");
             });
-    }, [concept, generateCharacterInfo, isGeneratingCharacterInfo, isLoading, tagsText]);
+    }, [concept, generateCharacterInfo, isGeneratingCharacterInfo, isLoading, tagSelections, tagsText]);
 
     const handleCharacterInfoUndo = useCallback(() => {
         if (characterInfoUndo.length === 0) return;
@@ -397,7 +399,7 @@ export const AICreationStudio: React.FC = () => {
                                     <div className="bg-surface rounded-2xl border border-border shadow-sm p-6 space-y-4">
                                         <div className="flex items-center justify-between">
                                             <div>
-                                                <p className="text-sm font-semibold text-fg">Generating character...</p>
+                                                <p className="text-sm font-semibold text-fg">Generating card...</p>
                                                 <p className="text-xs text-fg-muted">This may take a moment.</p>
                                             </div>
                                             <div className="flex items-center gap-2">

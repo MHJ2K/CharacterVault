@@ -18,7 +18,7 @@ import sourceTags from "./source.json";
 
 export type TagCategoryKey = "identity" | "personality" | "role" | "genre" | "tone" | "appearance" | "generation" | "dynamic" | "kink_fetish" | "meta" | "source";
 
-export type GenerationTagKey = "first_person" | "second_person" | "third_person" | "first_person_you" | "present_tense" | "past_tense";
+export type GenerationTagKey = "character_card" | "world_setting_card" | "first_person" | "second_person" | "third_person" | "first_person_you" | "present_tense" | "past_tense";
 
 export interface TagCategory {
     key: TagCategoryKey;
@@ -28,16 +28,24 @@ export interface TagCategory {
 
 export type TagSelections = Record<TagCategoryKey, string[]>;
 
+export const CARD_TYPE_TAGS = ["character_card", "world_setting_card"] as const satisfies readonly GenerationTagKey[];
+
 export const PERSPECTIVE_TAGS = ["first_person", "second_person", "third_person", "first_person_you"] as const satisfies readonly GenerationTagKey[];
 
 export const TENSE_TAGS = ["present_tense", "past_tense"] as const satisfies readonly GenerationTagKey[];
 
+export type CardTypeTag = (typeof CARD_TYPE_TAGS)[number];
 export type PerspectiveTag = (typeof PERSPECTIVE_TAGS)[number];
 export type TenseTag = (typeof TENSE_TAGS)[number];
 
 export interface GenerationStyleTags {
+    cardType: CardTypeTag | null;
     perspective: PerspectiveTag | null;
     tense: TenseTag | null;
+}
+
+function isCardTypeTag(tag: string): tag is CardTypeTag {
+    return CARD_TYPE_TAGS.includes(tag as CardTypeTag);
 }
 
 function isPerspectiveTag(tag: string): tag is PerspectiveTag {
@@ -183,6 +191,9 @@ function getTagCategoryMap(): Record<string, string[]> {
  * Handles special cases for generation tags.
  */
 export function formatTag(tag: string): string {
+    if (tag === "character_card") return "Character";
+    if (tag === "world_setting_card") return "World / Setting";
+
     // Special case for first_person_you generation tag
     if (tag === "first_person_you") {
         return "1st person (refer to {{user}} as 'you')";
@@ -333,27 +344,30 @@ export function randomizeTags(currentSelections: Record<string, string[]>, locke
     return next;
 }
 
-/**
- * Extract perspective and tense generation tags from tag selections.
- * Returns null for each if no matching tag is selected.
- */
 export function getGenerationTags(selections: Record<string, string[]>): {
+    cardType: CardTypeTag | null;
     perspective: PerspectiveTag | null;
     tense: TenseTag | null;
 } {
     const generationTags = selections["generation"] ?? [];
+    const cardType = generationTags.find(isCardTypeTag) ?? null;
     const perspective = generationTags.find(isPerspectiveTag) ?? null;
     const tense = generationTags.find(isTenseTag) ?? null;
-    return { perspective, tense };
+    return { cardType, perspective, tense };
 }
 
 export function hasRequiredGenerationTags(selections: Record<string, string[]>): boolean {
-    const { perspective, tense } = getGenerationTags(selections);
-    return Boolean(perspective && tense);
+    const { cardType, perspective, tense } = getGenerationTags(selections);
+    return Boolean(cardType && perspective && tense);
 }
 
 export function toggleGenerationTagSelection(current: readonly string[], tag: string): string[] {
     const exists = current.includes(tag);
+
+    if (isCardTypeTag(tag)) {
+        const updated = current.filter((t) => !isCardTypeTag(t));
+        return exists ? updated : [...updated, tag];
+    }
 
     if (isPerspectiveTag(tag)) {
         const updated = current.filter((t) => !isPerspectiveTag(t));
@@ -372,10 +386,12 @@ export function toggleGenerationTagSelection(current: readonly string[], tag: st
  * Return the default generation tag values used when no generation tags are selected.
  */
 export function getDefaultGenerationTags(): {
+    cardType: string;
     perspective: string;
     tense: string;
 } {
     return {
+        cardType: "character_card",
         perspective: "third_person",
         tense: "present_tense"
     };

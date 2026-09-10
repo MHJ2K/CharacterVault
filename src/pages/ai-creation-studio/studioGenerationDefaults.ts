@@ -7,7 +7,7 @@ export const DEFAULT_STUDIO_GENERATION_SETTINGS: StudioGenerationSettings = {
     characterInfoGeneratePrompt: `Generate a character or world idea based on these tags: \${tags}
 
 <classification>
-Determine whether the tags describe a CHARACTER (person, entity, individual) or a WORLD (setting, society, system). If ambiguous, default to CHARACTER. Do not state which path you chose.
+Determine whether the tags describe a CHARACTER (person, entity, individual) or a WORLD (setting, society, system). Do not state which path you chose.
 </classification>
 
 <rules>
@@ -26,7 +26,7 @@ Current idea:
 \${characterInfo}
 
 <classification>
-Determine whether the idea describes a CHARACTER (person, entity, individual) or a WORLD (setting, society, system). If ambiguous, default to CHARACTER. Do not state which path you chose.
+Determine whether the idea describes a CHARACTER (person, entity, individual) or a WORLD (setting, society, system). Do not state which path you chose.
 </classification>
 
 <rules>
@@ -47,8 +47,6 @@ Determine whether the idea describes a CHARACTER (person, entity, individual) or
 
 <classification>
 First, determine whether the concept describes a CHARACTER (a person, entity, or individual being) or a WORLD (a setting, society, location, system, or fictional reality). Apply the corresponding naming approach. Do not state which path you chose. Output the name only.
-
-If ambiguous, default to CHARACTER.
 </classification>
 
 <rules>
@@ -72,19 +70,6 @@ If ambiguous, default to CHARACTER.
 
 <classification>
 First, determine whether the concept describes a CHARACTER (a person, entity, or individual being) or a WORLD (a setting, society, location, system, or fictional reality). Apply the corresponding format below. Do not state which path you chose or explain your reasoning. Simply begin output in the correct format.
-
-Signals that the concept is a WORLD:
-- It describes a place, society, legal system, culture, or fictional reality
-- It references populations, social structures, governance, or systemic rules
-- The "name" refers to a world, region, organization, or setting rather than a person
-- It describes how a society works rather than who a person is
-
-Signals that the concept is a CHARACTER:
-- It describes a person, their appearance, personality, history, or relationships
-- The "name" belongs to an individual
-- It centers on personal traits, goals, and individual behavior
-
-If ambiguous, default to CHARACTER.
 </classification>
 
 <format_rules>
@@ -208,19 +193,6 @@ Description:
 
 <classification>
 First, determine whether the concept describes a CHARACTER (a person, entity, or individual being) or a WORLD (a setting, society, location, system, or fictional reality). Apply the corresponding rules below. Do not state which path you chose or explain your reasoning. Simply begin output in the correct format.
-
-Signals that the concept is a WORLD:
-- It describes a place, society, legal system, culture, or fictional reality
-- It references populations, social structures, governance, or systemic rules
-- The "name" refers to a world, region, organization, or setting rather than a person
-- It describes how a society works rather than who a person is
-
-Signals that the concept is a CHARACTER:
-- It describes a person, their appearance, personality, history, or relationships
-- The "name" belongs to an individual
-- It centers on personal traits, goals, and individual behavior
-
-If ambiguous, default to CHARACTER.
 </classification>
 
 <rules>
@@ -259,18 +231,6 @@ Description:
 
 <classification>
 First, determine whether "\${name}" is a CHARACTER or a WORLD based on the concept and description above. Apply the corresponding format below. Do not state which path you chose or explain your reasoning. Simply begin output in the correct format.
-
-Signals that this is a WORLD:
-- The concept or description describes a place, society, legal system, culture, or fictional reality
-- The "name" refers to a world, region, organization, or setting rather than a person
-- The description contains world sections (World Premise, Geography, Social Structure, etc.)
-
-Signals that this is a CHARACTER:
-- The concept or description describes a person, their appearance, personality, or behavior
-- The "name" belongs to an individual
-- The description contains character sections (Appearance, Personality, Background, etc.)
-
-If ambiguous, default to CHARACTER.
 </classification>
 
 <format_character>

@@ -296,13 +296,13 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
 
       {isConfigured && !isGenerating && !hasGenerationTags && (
         <p className="text-xs text-warning text-center">
-          Choose one perspective and one tense before generating.
+          Choose a card type, perspective, and tense before generating.
         </p>
       )}
 
       {isConfigured && !isGenerating && hasGenerationTags && !hasConceptSelection && (
         <p className="text-xs text-warning text-center">
-          Select at least one character tag before generating, or press I'm Feeling Lucky.
+          Select at least one concept tag before generating, or press I'm Feeling Lucky.
         </p>
       )}
 
@@ -318,7 +318,7 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
           ) : (
             <Sparkles className="w-4 h-4" />
           )}
-          {isGenerating ? 'Generating Character...' : 'Generate Character'}
+          {isGenerating ? 'Generating Card...' : 'Generate Card'}
         </button>
         {isGenerating && (
           <button

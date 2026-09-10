@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  applyCardTypeInstruction,
   buildDescriptionPrompt,
   buildNamePrompt,
   getDefaultStudioFieldConfig,
@@ -12,6 +13,15 @@ import {
 } from '../../../src/pages/ai-creation-studio/studioGenerationDefaults';
 
 describe('AI Studio generation prompts', () => {
+  it('adds an authoritative character or world selection to the prompt', () => {
+    expect(applyCardTypeInstruction('Generate the field.', 'character_card')).toContain(
+      'explicitly selected CHARACTER'
+    );
+    expect(applyCardTypeInstruction('Generate the field.', 'world_setting_card')).toContain(
+      'explicitly selected WORLD / SETTING'
+    );
+  });
+
   it('replaces every supported custom prompt placeholder', () => {
     const prompt = renderStudioPrompt('${concept}|${name}|${description}|${style}|${narrationFormat}', {
       concept: 'A lighthouse keeper',

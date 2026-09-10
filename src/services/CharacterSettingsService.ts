@@ -22,7 +22,7 @@ import {
 } from '../db/characterTypes';
 import { characterDb } from '../db/CharacterDatabase';
 import type { AITagCategory, CharacterSection } from '../db/characterTypes';
-import { TAG_CATEGORIES } from '../pages/ai-creation-studio/tags/tagData';
+import { CARD_TYPE_TAGS, TAG_CATEGORIES } from '../pages/ai-creation-studio/tags/tagData';
 import { DEFAULT_STUDIO_GENERATION_SETTINGS, cloneStudioGenerationSettings } from '../pages/ai-creation-studio/studioGenerationDefaults';
 import { normalizeModelBinding, normalizePromptModelMap } from './resolveOperationConfig';
 
@@ -388,11 +388,24 @@ export class CharacterSettingsService {
   /** Get the global AI Creation Studio taxonomy. */
   async getStudioTagCategories(): Promise<AITagCategory[]> {
     const settings = await this.getSettings();
-    return (settings.studioTagCategories ?? TAG_CATEGORIES).map((category) => ({
+    const categories = (settings.studioTagCategories ?? TAG_CATEGORIES).map((category) => ({
       key: category.key,
       label: category.label,
       tags: [...category.tags],
     }));
+    const generationCategory = categories.find((category) => category.key === 'generation');
+    if (generationCategory) {
+      generationCategory.tags = [
+        ...CARD_TYPE_TAGS.filter((tag) => !generationCategory.tags.includes(tag)),
+        ...generationCategory.tags,
+      ];
+    } else {
+      const defaultGenerationCategory = TAG_CATEGORIES.find((category) => category.key === 'generation');
+      if (defaultGenerationCategory) {
+        categories.unshift({ ...defaultGenerationCategory, tags: [...defaultGenerationCategory.tags] });
+      }
+    }
+    return categories;
   }
 
   /** Get the AI Creation Studio generated fields and prompt templates. */

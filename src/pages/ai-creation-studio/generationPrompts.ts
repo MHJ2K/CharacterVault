@@ -1,4 +1,4 @@
-import type { PerspectiveTag, TenseTag } from './tags/tagData';
+import type { CardTypeTag, PerspectiveTag, TenseTag } from './tags/tagData';
 import type { StudioGenerationField, StudioGenerationFieldConfig } from '../../db/characterTypes';
 import { DEFAULT_STUDIO_GENERATION_SETTINGS, DEFAULT_STUDIO_SYSTEM_PROMPT } from './studioGenerationDefaults';
 
@@ -30,6 +30,16 @@ export function renderStudioPrompt(template: string, context: StudioPromptContex
         narrationFormat: context.narrationFormat,
     };
     return template.replace(/\$\{(concept|name|description|style|narrationFormat)\}/g, (_, key: string) => values[key]);
+}
+
+export function applyCardTypeInstruction(prompt: string, cardType: CardTypeTag | null): string {
+    if (!cardType) throw new Error('Generation requires a card type.');
+
+    const instruction = cardType === 'character_card'
+        ? 'The user explicitly selected CHARACTER. Generate an individual character card. Treat this selection as authoritative; do not reinterpret the concept as a world or setting.'
+        : 'The user explicitly selected WORLD / SETTING. Generate a world or setting card, not an individual character. Treat this selection as authoritative even when some tags could describe a person.';
+
+    return `${prompt}\n\n<card_type>\n${instruction}\n</card_type>`;
 }
 
 export function getDefaultStudioFieldConfig(field: StudioGenerationField): StudioGenerationFieldConfig {
